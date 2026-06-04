@@ -157,10 +157,10 @@ export function Diagnostics({ data, onAcknowledgeStartup, onAcknowledgeFault, on
               </div>
            </div>
 
-           {/* Fault Simulator */}
+           {/* Fault Injection / Safety Test */}
            <div className="bg-[#151921] border border-[#2D333F] rounded p-3">
                <h3 className="text-[10px] uppercase font-bold text-gray-400 mb-2 border-l-2 border-red-500 pl-2 flex items-center">
-                  <Bug className="mr-2 text-red-500" size={12} /> Hata Simülatörü (Test)
+                  <Bug className="mr-2 text-red-500" size={12} /> Hata Enjeksiyonu (Emniyet Testi)
                </h3>
                <div className="grid grid-cols-2 gap-2 mt-2">
                   <button onClick={() => onTriggerFault('VALVE_STUCK')} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-800 rounded p-1.5 text-[9px] font-bold transition-colors">Sıkışık Valf</button>

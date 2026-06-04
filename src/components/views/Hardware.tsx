@@ -435,22 +435,25 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                      <div className="flex-1">
                         <label className="block text-[10px] text-gray-500 mb-1">Seri Port (COM)</label>
                         <div className="flex space-x-1">
-                          <select 
-                             value={nano.port || ''}
-                             onChange={(e) => onUpdateNanoConfig(nano.id, { port: e.target.value })}
-                             disabled={data.mode === 'OTOMATİK'}
-                             className="w-full bg-[#151921] border border-[#374151] rounded px-2 py-1.5 text-xs text-gray-200 focus:border-indigo-500 outline-none disabled:opacity-50"
-                          >
-                             <option value="" disabled>Seçiniz</option>
-                             {Array.from(new Set([...(data.serialPorts || []), ...availablePorts])).map(p => {
-                                const inUseBy = data.nanos.find(n => n.id !== nano.id && n.port === p);
-                                return (
-                                  <option key={p} value={p} disabled={!!inUseBy}>
-                                    {p} {inUseBy ? `(${inUseBy.name} kullanımında)` : ''}
-                                  </option>
-                                );
-                             })}
-                          </select>
+                           <input
+                              type="text"
+                              list={`ports-list-${nano.id}`}
+                              value={nano.port || ''}
+                              onChange={(e) => onUpdateNanoConfig(nano.id, { port: e.target.value })}
+                              disabled={data.mode === 'OTOMATİK'}
+                              className="w-full bg-[#151921] border border-[#374151] rounded px-2 py-1.5 text-xs text-gray-200 focus:border-indigo-500 outline-none disabled:opacity-50"
+                              placeholder="Örn: /dev/ttyUSB0 veya serial 0"
+                           />
+                           <datalist id={`ports-list-${nano.id}`}>
+                              {Array.from(new Set([...(data.serialPorts || []), ...availablePorts, "serial 0", "serial 1", "/dev/ttyAMA0", "/dev/ttyAMA1"])).map(p => {
+                                 const inUseBy = data.nanos.find(n => n.id !== nano.id && n.port === p);
+                                 return (
+                                   <option key={p} value={p}>
+                                     {inUseBy ? `(Kullanımda: ${inUseBy.name})` : ''}
+                                   </option>
+                                 );
+                              })}
+                           </datalist>
                           <button 
                              onClick={handleScan} 
                              disabled={isScanning || data.mode === 'OTOMATİK'} 

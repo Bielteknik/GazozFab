@@ -634,8 +634,8 @@ export const ManualControl: React.FC<ManualControlProps> = ({
 
                                    <div className="bg-[#1C2029]/50 p-4 border border-[#2D333F] rounded space-y-3">
                                       <div className="flex items-center justify-between">
-                                         <div className="text-[10px] font-bold text-gray-400 uppercase">Donanım Simülatörü / Kalibrasyon Test Modu</div>
-                                         <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded text-[8px] font-bold tracking-widest">TEST</span>
+                                         <div className="text-[10px] font-bold text-gray-400 uppercase">Şerbet Tankı Kalibrasyon & Seviye Görünümü</div>
+                                         <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded text-[8px] font-bold tracking-widest">TEST / OKUMA</span>
                                       </div>
                                       <div className="space-y-1">
                                          <div className="flex justify-between">
@@ -652,7 +652,7 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                          />
                                       </div>
                                       <p className="text-[8px] text-gray-600 leading-normal italic">
-                                         * Bu sürgü, ultrasonik sensörün tank tavanından sıvı yüzeyine olan mesafesini simüle eder. Sıvı yüksekliği arttıkça okunan mesafe düşer.
+                                         * Bu sürgü, fiziksel ultrasonik sensörün tank tavanından sıvı yüzeyine olan mesafesini kalibre etmek veya test etmek için kullanılır. Sıvı yüksekliği arttıkça okunan mesafe düşer.
                                       </p>
                                    </div>
                                 </div>

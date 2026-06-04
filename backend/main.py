@@ -8,6 +8,10 @@ from datetime import datetime
 import socketio
 from aiohttp import web
 
+# Import real hardware and production managers
+from hardware_manager import HardwareManager
+from production_manager import ProductionManager
+
 # Absolute paths setup relative to main.py
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "gazozfab.db")
@@ -85,13 +89,12 @@ def init_db():
                     try:
                         conn.execute(stmt_strip)
                     except Exception as ex:
-                        # Ignore issues if columns/tables exist
                         pass
             conn.commit()
             conn.close()
-            print("[DB] Schema structure check completed.")
+            print("[DB] Schema check completed.")
         except Exception as e:
-            print(f"[DB] Error checking schema structure: {e}")
+            print(f"[DB] Error checking schema: {e}")
 
 # Helper to write logs to DB
 def add_log(message):
@@ -114,10 +117,8 @@ def get_full_state_sync():
         db.execute("INSERT OR IGNORE INTO system_config (id) VALUES (1)")
         config_row = db.fetchone("SELECT * FROM system_config WHERE id = 1")
 
-    # Convert config row to dict
     config = dict(config_row) if config_row else {}
     config.pop("id", None)
-    # Convert booleans
     config["relayInversion"] = bool(config.get("relayInversion", False))
     config["autoRecovery"] = bool(config.get("autoRecovery", True))
     config["enableMqtt"] = bool(config.get("enableMqtt", False))
@@ -200,7 +201,6 @@ def get_full_state_sync():
         except:
             active_prompt = None
 
-    # Merge everything
     system_data = {
         "mode": state_row.get("mode", "BEKLEMEDE") if state_row else "BEKLEMEDE",
         "autoState": state_row.get("autoState", "BEKLEMEDE") if state_row else "BEKLEMEDE",
@@ -229,20 +229,135 @@ def get_full_state_sync():
 # SocketIO Setup
 sio = socketio.AsyncServer(cors_allowed_origins="*")
 
-# State & Sim Variables
-class SimulationState:
-    def __init__(self):
-        self.step_timer = 0
-        self.wash_timer = 0
-        self.flush_timer = 0
-        self.current_valve_pulse = {} # valve_id: duration_left
+# Create Hardware Manager instance
+hw = HardwareManager()
+hw.db = db
 
-sim_state = SimulationState()
+def broadcast_callback():
+    """Trigger update to all connected frontends."""
+    asyncio.create_task(sio.emit('STATE_UPDATE', get_full_state_sync()))
+
+# Create Production Manager instance
+prod = ProductionManager(db, hw, broadcast_callback)
+
+def reload_hardware_config():
+    """Reload all hardware config from database and apply to HardwareManager."""
+    try:
+        nanos = db.fetchall("SELECT * FROM nanos")
+        sensors = db.fetchall("SELECT * FROM sensors")
+        hw.apply_config(nanos, sensors)
+        print("[Hardware] Configuration successfully reloaded from database.")
+    except Exception as e:
+        print(f"[Hardware Reload Error] {e}")
+
+def handle_nano_discovery(nano_id, name, port, baudrate):
+    """Callback triggered when a Nano is discovered/connected on serial or network."""
+    try:
+        # Check if this Nano already exists in the database
+        existing = db.fetchone("SELECT * FROM nanos WHERE id = ?", (nano_id,))
+        if existing:
+            # Update existing Nano with current port, baudrate, name, and ONLINE status
+            db.execute(
+                "UPDATE nanos SET name = ?, port = ?, baudRate = ?, status = 'ONLINE' WHERE id = ?",
+                (name, port, baudrate, nano_id)
+            )
+            print(f"[DB Discovery] Updated existing Nano: {name} ({nano_id}) on {port}")
+            add_log(f"Cihaz tekrar bağlandı: {name} (ID: {nano_id}) -> Port: {port}")
+        else:
+            # Register new Nano in DB
+            db.execute(
+                "INSERT INTO nanos (id, name, port, baudRate, status) VALUES (?, ?, ?, ?, 'ONLINE')",
+                (nano_id, name, port, baudrate)
+            )
+            print(f"[DB Discovery] Registered new Nano: {name} ({nano_id}) on {port}")
+            add_log(f"Yeni cihaz otomatik keşfedildi: {name} (ID: {nano_id}) -> Port: {port}")
+            
+            # Create HMI warning alert for newly registered Nano
+            alert_id = f"ALERT-NANO-{int(time.time())}"
+            db.execute(
+                "INSERT INTO active_alerts (id, code, message, severity, timestamp) VALUES (?, 'NEW_NANO_DETECTED', ?, 'WARNING', ?)",
+                (alert_id, f"Yeni Nano Donanımı Algılandı: {name} ({nano_id})", time.time())
+            )
+            
+        # Send dynamic config to GatesNano on discovery
+        if nano_id == "GatesNano":
+            gates = db.fetchall("SELECT * FROM gates WHERE nanoId = ? OR id IN ('inputGate', 'outputGate')", (nano_id,))
+            sensors = db.fetchall("SELECT * FROM sensors WHERE device = ?", (nano_id,))
+            
+            input_gate = next((g for g in gates if g["id"] == "inputGate"), None)
+            output_gate = next((g for g in gates if g["id"] == "outputGate"), None)
+            
+            sens_in = next((s for s in sensors if s["type"] == "INPUT"), None)
+            sens_out = next((s for s in sensors if s["type"] == "OUTPUT"), None)
+            
+            step1 = input_gate["pin"] if (input_gate and input_gate["pin"]) else "5"
+            dir1 = input_gate["dirPin"] if (input_gate and input_gate["dirPin"]) else "2"
+            en1 = input_gate["enablePin"] if (input_gate and input_gate["enablePin"]) else "8"
+            speed1 = input_gate["speed"] if (input_gate and input_gate["speed"]) else "1000"
+            steps1 = input_gate["stepsToOpen"] if (input_gate and input_gate["stepsToOpen"]) else "400"
+            
+            step2 = output_gate["pin"] if (output_gate and output_gate["pin"]) else "6"
+            dir2 = output_gate["dirPin"] if (output_gate and output_gate["dirPin"]) else "3"
+            en2 = output_gate["enablePin"] if (output_gate and output_gate["enablePin"]) else "8"
+            speed2 = output_gate["speed"] if (output_gate and output_gate["speed"]) else "1000"
+            steps2 = output_gate["stepsToOpen"] if (output_gate and output_gate["stepsToOpen"]) else "400"
+            
+            en = en1 if en1 else en2 if en2 else "8"
+            
+            s_in_pin = sens_in["pin"] if (sens_in and sens_in["pin"]) else "12"
+            s_out_pin = sens_out["pin"] if (sens_out and sens_out["pin"]) else "13"
+            
+            config_cmd = f"CONFIG:STEP1={step1}:DIR1={dir1}:STEP2={step2}:DIR2={dir2}:EN={en}:SENS_IN={s_in_pin}:SENS_OUT={s_out_pin}:SPEED1={speed1}:SPEED2={speed2}:STEPS1={steps1}:STEPS2={steps2}"
+            
+            target_port = port if port else nano_id
+            hw.send_command(config_cmd, target_port=target_port)
+            print(f"[Hardware Config] Sent dynamic configuration to {nano_id} on {target_port}: {config_cmd}")
+            add_log(f"{nano_id} için dinamik yapılandırma gönderildi: {config_cmd}")
+            
+        broadcast_callback()
+    except Exception as e:
+        print(f"[DB Discovery Error] {e}")
+
+def handle_nano_disconnect(nano_id):
+    """Callback triggered when a Nano disconnects (e.g. TCP connection dropped)."""
+    try:
+        db.execute("UPDATE nanos SET status = 'OFFLINE' WHERE id = ?", (nano_id,))
+        print(f"[DB Disconnect] Nano disconnected: {nano_id}")
+        add_log(f"Cihaz bağlantısı koptu (OFFLINE): {nano_id}")
+        broadcast_callback()
+    except Exception as e:
+        print(f"[DB Disconnect Error] {e}")
+
+# Sensor event callback from hardware
+def handle_sensor_event(device_id, sensor_type):
+    # Retrieve current count from DB
+    key = "inputCount" if sensor_type == "IN" else "outputCount"
+    state_row = db.fetchone("SELECT * FROM system_state WHERE id = 1")
+    if state_row:
+        val = (state_row[key] or 0) + 1
+        db.execute(f"UPDATE system_state SET {key} = ? WHERE id = 1", (val,))
+        add_log(f"{'Giriş' if sensor_type == 'IN' else 'Çıkış'} Lazeri algılandı. Yeni Sayı: {val}")
+        broadcast_callback()
+
+# Distance event callback from hardware (HC-SR04)
+def handle_distance_read(distance_cm):
+    # Convert distance to tank fill percentage or log directly
+    db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (int(distance_cm),))
+    broadcast_callback()
+
+hw.on_sensor_event = handle_sensor_event
+hw.on_distance_read = handle_distance_read
+hw.on_nano_discovered = handle_nano_discovery
+hw.on_nano_disconnected = handle_nano_disconnect
 
 # Socket event: Connect
 @sio.event
 async def connect(sid, environ):
     print(f"[Socket] Client connected: {sid}")
+    # Populate available serial ports
+    state = get_full_state_sync()
+    state["serialPorts"] = hw.get_available_ports()
+    await sio.emit('STATE_UPDATE', state, to=sid)
 
 # Socket event: Disconnect
 @sio.event
@@ -253,15 +368,15 @@ async def disconnect(sid):
 @sio.on('GET_STATE')
 async def handle_get_state(sid):
     state = get_full_state_sync()
+    state["serialPorts"] = hw.get_available_ports()
     await sio.emit('STATE_UPDATE', state, to=sid)
 
 # Socket event: SCAN_PORTS
 @sio.on('SCAN_PORTS')
 async def handle_scan_ports(sid):
-    import serial.tools.list_ports
-    ports = [p.device for p in serial.tools.list_ports.comports()]
+    ports = hw.get_available_ports()
     if not ports:
-        ports = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0"]
+        ports = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0", "/dev/ttyAMA0", "/dev/ttyAMA1"]
     await sio.emit('AVAILABLE_PORTS', ports, to=sid)
 
 # Socket event: ACTION
@@ -270,7 +385,7 @@ async def handle_action(sid, data):
     action_type = data.get('type')
     payload = data.get('payload', {})
     
-    print(f"[Socket] Action received: {action_type} with payload: {payload}")
+    print(f"[Socket] Action received: {action_type}")
     
     # DB transaction handle
     if action_type == 'SET_MODE':
@@ -281,9 +396,7 @@ async def handle_action(sid, data):
         add_log(f"Sistem çalışma modu güncellendi: {new_mode}")
         
     elif action_type == 'START_AUTO_CYCLE':
-        # Reset counters and trigger cycle
         db.execute("UPDATE system_state SET mode = 'OTOMATİK', autoState = 'BEKLEMEDE', inputCount = 0, outputCount = 0 WHERE id = 1")
-        # Acknowledge any critical low error alert resolved
         db.execute("DELETE FROM active_alerts WHERE code = 'ERR_ULTRASONIC_LOW'")
         add_log("Otomatik üretim döngüsü başlatıldı.")
         
@@ -298,11 +411,15 @@ async def handle_action(sid, data):
 
     elif action_type == 'TOGGLE_VALVE':
         vid = payload.get('id')
-        row = db.fetchone("SELECT isOpen FROM valves WHERE id = ?", (vid,))
+        row = db.fetchone("SELECT isOpen, pin, device, nanoId FROM valves WHERE id = ?", (vid,))
         if row:
             new_state = 1 - row['isOpen']
+            target_device = row['nanoId'] if row['device'] == 'NANO' else row['device']
+            if not target_device or target_device == 'NANO':
+                target_device = 'ValvesNano'
+            hw.control_valve(vid, row['pin'], new_state, target_device)
             db.execute("UPDATE valves SET isOpen = ? WHERE id = ?", (new_state, vid))
-            add_log(f"Valf {vid} durumu değiştirildi: {'AÇIK' if new_state else 'KAPALI'}")
+            add_log(f"Valf {vid} ({row['pin']}) durumu değiştirildi: {'AÇIK' if new_state else 'KAPALI'}")
 
     elif action_type == 'SET_VALVE_MODE':
         vid = payload.get('id')
@@ -319,9 +436,17 @@ async def handle_action(sid, data):
     elif action_type == 'OPERATE_GATE':
         target = payload.get('target') # 'inputGate' or 'outputGate'
         position = payload.get('position', 0)
-        is_open = 1 if position > 0 else 0
-        db.execute("UPDATE gates SET position = ?, isOpen = ? WHERE id = ?", (position, is_open, target))
-        add_log(f"Kilit motoru çalıştırıldı ({target}) -> Pozisyon: {position}, {'AÇIK' if is_open else 'KAPALI'}")
+        is_open = (position > 0)
+        
+        # Get pin and device for the gate
+        gate = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = ?", (target,))
+        if gate:
+            target_device = gate['nanoId'] if gate['device'] == 'NANO' else gate['device']
+            if not target_device or target_device == 'NANO':
+                target_device = 'GatesNano'
+            hw.control_gate(target, gate['pin'], is_open, target_device)
+            db.execute("UPDATE gates SET position = ?, isOpen = ? WHERE id = ?", (position, 1 if is_open else 0, target))
+            add_log(f"Kilit motoru çalıştırıldı ({target}) -> Pozisyon: {position}, {'AÇIK' if is_open else 'KAPALI'}")
 
     elif action_type == 'TOGGLE_GATE_ENABLED':
         target = payload.get('target') or payload.get('id')
@@ -334,7 +459,8 @@ async def handle_action(sid, data):
         db.execute("INSERT INTO active_alerts (id, code, message, severity, timestamp) VALUES (?, ?, 'Acil Durdurma / Sistem Arızası Tetiklendi', 'CRITICAL', ?)",
                    (alert_id, ftype, time.time()))
         db.execute("UPDATE system_state SET mode = 'ARIZA', autoState = 'BEKLEMEDE' WHERE id = 1")
-        db.execute("UPDATE valves SET isOpen = 0") # Close all valves
+        hw.all_valves_off()
+        db.execute("UPDATE valves SET isOpen = 0")
         add_log("Kritik Hata: Sistem ARIZA moduna alındı, tüm valfler kapatıldı!")
 
     elif action_type == 'UPDATE_CONFIG':
@@ -362,10 +488,14 @@ async def handle_action(sid, data):
     elif action_type == 'SEND_NANO_COMMAND':
         nano_id = payload.get('nanoId')
         cmd = payload.get('cmd', '')
-        add_log(f"Komut gönderildi -> ({nano_id}): {cmd}")
-        # Send back a terminal response simulator
-        response = f"\r\n[Nano-{nano_id} OK] Command processed successfully: {cmd}\r\n"
-        await sio.emit('TERMINAL_OUTPUT', response, to=sid)
+        
+        # Find port for target Nano
+        port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == nano_id), None)
+        if port:
+            hw.send_command(cmd, target_port=port)
+            add_log(f"Komut gönderildi -> ({nano_id}): {cmd}")
+        else:
+            add_log(f"Komut gönderme başarısız: ({nano_id}) çevrimdışı.")
 
     elif action_type == 'UPDATE_NANO_CONFIG':
         nid = payload.get('id')
@@ -431,9 +561,13 @@ async def handle_action(sid, data):
 
     elif action_type == 'OPERATE_EXTRA_GATE':
         gid = payload.get('id')
-        row = db.fetchone("SELECT isOpen FROM gates WHERE id = ?", (gid,))
+        row = db.fetchone("SELECT isOpen, pin, device, nanoId FROM gates WHERE id = ?", (gid,))
         if row:
             new_state = 1 - row['isOpen']
+            target_device = row['nanoId'] if row['device'] == 'NANO' else row['device']
+            if not target_device or target_device == 'NANO':
+                target_device = 'GatesNano'
+            hw.control_gate(gid, row['pin'], new_state, target_device)
             db.execute("UPDATE gates SET isOpen = ? WHERE id = ?", (new_state, gid))
             add_log(f"Ek kilit {gid} durumu değiştirildi: {'AÇIK' if new_state else 'KAPALI'}")
 
@@ -468,7 +602,6 @@ async def handle_action(sid, data):
         rid = payload.get('id')
         db.execute("UPDATE system_config SET recipeId = ? WHERE id = 1", (rid,))
         
-        # Pull recipe target count and configurations and sync into system_config
         recipe = db.fetchone("SELECT * FROM recipes WHERE id = ?", (rid,))
         if recipe:
             db.execute("UPDATE system_config SET targetCount = ?, fillTimeMs = ?, volumeMl = ?, settlingTimeMs = ?, dripWaitTimeMs = ? WHERE id = 1",
@@ -520,240 +653,141 @@ async def handle_action(sid, data):
         db.execute("DELETE FROM terminal_logs")
         db.execute("UPDATE system_config SET recipeId = '', targetCount = 0, fillTimeMs = 0 WHERE id = 1")
         db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE', inputCount = 0, outputCount = 0, tankLevelCm = 85, isWashingDone = 0, isWashingRequired = 0, stopAfterCycleRequested = 0, activePrompt = NULL WHERE id = 1")
-        # Re-seed default gates
         db.execute("INSERT OR IGNORE INTO gates (id, name, pin, isOpen, enabled, device) VALUES ('inputGate', 'Giriş Kapısı', 'G1', 0, 1, 'NANO')")
         db.execute("INSERT OR IGNORE INTO gates (id, name, pin, isOpen, enabled, device) VALUES ('outputGate', 'Çıkış Kapısı', 'G2', 0, 1, 'NANO')")
-        add_log("Sistem tamamen fabrika ayarlarına sıfırlandı.")
+        hw.cleanup()
+        add_log("Sistem tamamen sıfırlandı.")
 
     elif action_type == 'TEST_VALVE_PULSE':
         vid = payload.get('id')
         duration = payload.get('duration', 1000)
-        db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (vid,))
-        sim_state.current_valve_pulse[vid] = duration
-        add_log(f"Manuel valf darbe testi tetiklendi -> Valf: {vid}, Süre: {duration} ms")
+        row = db.fetchone("SELECT pin, device, nanoId FROM valves WHERE id = ?", (vid,))
+        if row:
+            target_device = row['nanoId'] if row['device'] == 'NANO' else row['device']
+            if not target_device or target_device == 'NANO':
+                target_device = 'ValvesNano'
+            asyncio.create_task(hw.pulse_valve(vid, row['pin'], duration, target_device))
+            add_log(f"Manuel valf darbe testi tetiklendi -> Valf: {vid}, Süre: {duration} ms")
         
     elif action_type == 'START_OPERATOR_FILL':
-        # Trigger temporary operator fill sequence
+        asyncio.create_task(prod._trigger_filling_valves())
         add_log("Operatör manuel dolum sırası tetiklendi.")
         
     else:
         print(f"[Socket] Unknown action: {action_type}")
 
-    # After any action, broadcast the updated state
-    state = get_full_state_sync()
-    await sio.emit('STATE_UPDATE', state)
+    # Actions that require reloading hardware configurations
+    hw_actions = {
+        'ADD_VALVE', 'REMOVE_VALVE', 'TOGGLE_HARDWARE_STATUS', 
+        'UPDATE_NANO_CONFIG', 'UPDATE_VALVE', 'UPDATE_SENSOR', 
+        'UPDATE_GATE', 'UPDATE_SYSTEM_GATE', 'TOGGLE_SENSOR_ENABLED', 
+        'ADD_SENSOR', 'REMOVE_SENSOR', 'ADD_GATE', 'REMOVE_GATE', 
+        'ADD_HARDWARE', 'REMOVE_HARDWARE', 'SYSTEM_RESET'
+    }
+    
+    if action_type in hw_actions:
+        reload_hardware_config()
 
+    # Broadcast update
+    broadcast_callback()
 
-# Asynchronous state machine simulation loop
-async def simulation_loop():
-    print("[Simulator] Background simulation loop started.")
+# Keep track of last reconnect attempt times to avoid console spam
+last_reconnect_attempts = {}
+last_port_scan_time = 0
+
+# Background serial read polling loop
+async def serial_polling_loop():
+    global last_port_scan_time
     while True:
         try:
-            state_row = db.fetchone("SELECT * FROM system_state WHERE id = 1")
-            if not state_row:
-                await asyncio.sleep(0.5)
-                continue
-                
-            mode = state_row["mode"]
-            auto_state = state_row["autoState"]
-            input_count = state_row["inputCount"]
-            output_count = state_row["outputCount"]
-            tank_level = state_row["tankLevelCm"]
-            stop_after_cycle = state_row["stopAfterCycleRequested"]
-
-            config_row = db.fetchone("SELECT * FROM system_config WHERE id = 1")
-            target_count = config_row["targetCount"] if config_row else 10
-            fill_time_ms = config_row["fillTimeMs"] if config_row else 1000
-            settling_time_ms = config_row["settlingTimeMs"] if config_row else 150
-            drip_wait_ms = config_row["dripWaitTimeMs"] if config_row else 150
+            hw.update_serial_read()
             
-            state_changed = False
-
-            # 1. Manual Valve Pulse Timer handler
-            pulse_keys_to_del = []
-            for vid, time_left in sim_state.current_valve_pulse.items():
-                new_time = time_left - 500
-                if new_time <= 0:
-                    db.execute("UPDATE valves SET isOpen = 0 WHERE id = ?", (vid,))
-                    pulse_keys_to_del.append(vid)
-                    add_log(f"Valf {vid} darbe süresi doldu, kapatıldı.")
-                    state_changed = True
-                else:
-                    sim_state.current_valve_pulse[vid] = new_time
-            for k in pulse_keys_to_del:
-                del sim_state.current_valve_pulse[k]
-
-            # 2. Modes simulation
-            if mode == "OTOMATİK":
-                if auto_state == "BEKLEMEDE":
-                    auto_state = "GIRIS_BEKLEME"
-                    db.execute("UPDATE system_state SET autoState = 'GIRIS_BEKLEME' WHERE id = 1")
-                    add_log("Otomatik üretim başlatıldı. Şişe bekleniyor...")
-                    state_changed = True
-
-                elif auto_state == "GIRIS_BEKLEME":
-                    sim_state.step_timer += 500
-                    if sim_state.step_timer >= 1500: # Wait for bottle
-                        sim_state.step_timer = 0
-                        auto_state = "GIRIS_KILITLI"
-                        db.execute("UPDATE sensors SET enabled = 1 WHERE id = 'SENS-IN'")
-                        db.execute("UPDATE gates SET isOpen = 1 WHERE id = 'inputGate'") # open entry gate
-                        db.execute("UPDATE system_state SET autoState = 'GIRIS_KILITLI' WHERE id = 1")
-                        add_log("Şişe giriş lazeri algılandı. Giriş kilidi açıldı.")
-                        state_changed = True
-
-                elif auto_state == "GIRIS_KILITLI":
-                    sim_state.step_timer += 500
-                    if sim_state.step_timer >= 1000: # Wait to lock
-                        sim_state.step_timer = 0
-                        auto_state = "DENGELEME"
-                        input_count += 1
-                        db.execute("UPDATE gates SET isOpen = 0 WHERE id = 'inputGate'") # close entry gate
-                        db.execute("UPDATE system_state SET autoState = 'DENGELEME', inputCount = ? WHERE id = 1", (input_count,))
-                        add_log(f"Giriş kilidi kapatıldı. Şişe kilitlendi. Toplam Giriş: {input_count}")
-                        state_changed = True
-
-                elif auto_state == "DENGELEME":
-                    sim_state.step_timer += 500
-                    if sim_state.step_timer >= settling_time_ms:
-                        sim_state.step_timer = 0
-                        auto_state = "DOLUM"
-                        # Open active valves
-                        db.execute("UPDATE valves SET isOpen = 1 WHERE enabled = 1")
-                        db.execute("UPDATE system_state SET autoState = 'DOLUM' WHERE id = 1")
-                        add_log("Dolum başlatıldı. Valfler açıldı.")
-                        state_changed = True
-
-                elif auto_state == "DOLUM":
-                    sim_state.step_timer += 500
-                    # Consume syrup
-                    tank_level = max(0, tank_level - 1)
-                    db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (tank_level,))
-                    
-                    critical_limit = config_row["ultrasonicCriticalLowPercent"] if config_row else 15
-                    max_height = config_row["ultrasonicMaxHeightCm"] if config_row else 100
-                    pct = ((max_height - tank_level) / max_height) * 100
-                    
-                    if pct <= critical_limit:
-                        alert_id = f"ALERT-{int(time.time())}"
-                        db.execute("INSERT OR IGNORE INTO active_alerts (id, code, message, severity, timestamp) VALUES (?, 'ERR_ULTRASONIC_LOW', 'Şerbet tankı seviyesi kritik derecede düşük!', 'CRITICAL', ?)",
-                                   (alert_id, time.time()))
-                        add_log("HATA: Şerbet tank seviyesi kritik limitin altında!")
-                        mode = "ARIZA"
-                        auto_state = "BEKLEMEDE"
-                        db.execute("UPDATE system_state SET mode = 'ARIZA', autoState = 'BEKLEMEDE' WHERE id = 1")
-                        db.execute("UPDATE valves SET isOpen = 0") # Close all valves
-                        state_changed = True
-                    elif sim_state.step_timer >= fill_time_ms:
-                        sim_state.step_timer = 0
-                        auto_state = "DAMLA_BEKLEME"
-                        db.execute("UPDATE valves SET isOpen = 0") # Close all valves
-                        db.execute("UPDATE system_state SET autoState = 'DAMLA_BEKLEME' WHERE id = 1")
-                        add_log("Dolum tamamlandı. Damlama bekleniyor.")
-                        state_changed = True
-
-                elif auto_state == "DAMLA_BEKLEME":
-                    sim_state.step_timer += 500
-                    if sim_state.step_timer >= drip_wait_ms:
-                        sim_state.step_timer = 0
-                        auto_state = "TAHLIYE"
-                        db.execute("UPDATE gates SET isOpen = 1 WHERE id = 'outputGate'") # open exit gate
-                        db.execute("UPDATE system_state SET autoState = 'TAHLIYE' WHERE id = 1")
-                        add_log("Damlama tamamlandı. Çıkış kilidi açıldı, tahliye ediliyor.")
-                        state_changed = True
-
-                elif auto_state == "TAHLIYE":
-                    sim_state.step_timer += 500
-                    if sim_state.step_timer >= 1000:
-                        sim_state.step_timer = 0
-                        auto_state = "DOGRULAMA"
-                        output_count += 1
-                        db.execute("UPDATE gates SET isOpen = 0 WHERE id = 'outputGate'") # close exit gate
-                        db.execute("UPDATE system_state SET autoState = 'DOGRULAMA', outputCount = ? WHERE id = 1", (output_count,))
-                        add_log(f"Çıkış kilidi kapatıldı. Toplam Çıkış: {output_count}")
-                        state_changed = True
-
-                elif auto_state == "DOGRULAMA":
-                    sim_state.step_timer += 500
-                    if sim_state.step_timer >= 500:
-                        sim_state.step_timer = 0
+            # Sync connection statuses in DB
+            nanos = db.fetchall("SELECT * FROM nanos")
+            now = time.time()
+            
+            # 1. Self-healing for configured Nanos
+            for n in nanos:
+                port = n["port"]
+                if port:
+                    is_online = hw.is_port_online(port)
+                    status_str = "ONLINE" if is_online else "OFFLINE"
+                    if n["status"] != status_str:
+                        db.execute("UPDATE nanos SET status = ? WHERE id = ?", (status_str, n["id"]))
+                        add_log(f"Denetleyici ({n['id']}) bağlantı durumu değişti: {status_str}")
+                        broadcast_callback()
                         
-                        # Validation pass
-                        if stop_after_cycle:
-                            mode = "BEKLEMEDE"
-                            auto_state = "BEKLEMEDE"
-                            db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE', stopAfterCycleRequested = 0 WHERE id = 1")
-                            add_log("Döngü sonu durdurma talebi tamamlandı. Üretim sonlandırıldı.")
-                            
-                            # Log cycle history
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            db.execute("INSERT INTO cycle_history (recipeId, timestamp, duration, inputCount, outputCount, status) VALUES (?, ?, ?, ?, ?, 'SUCCESS')",
-                                       (config_row["recipeId"] if config_row else "", timestamp, fill_time_ms + settling_time_ms + drip_wait_ms + 3000, input_count, output_count))
-                        elif input_count >= target_count:
-                            mode = "BEKLEMEDE"
-                            auto_state = "BEKLEMEDE"
-                            db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE' WHERE id = 1")
-                            add_log(f"Hedef üretim adedine ulaşıldı ({target_count}). Üretim tamamlandı.")
-                            
-                            # Log cycle history
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            db.execute("INSERT INTO cycle_history (recipeId, timestamp, duration, inputCount, outputCount, status) VALUES (?, ?, ?, ?, ?, 'SUCCESS')",
-                                       (config_row["recipeId"] if config_row else "", timestamp, fill_time_ms + settling_time_ms + drip_wait_ms + 3000, input_count, output_count))
-                        else:
-                            auto_state = "GIRIS_BEKLEME"
-                            db.execute("UPDATE system_state SET autoState = 'GIRIS_BEKLEME' WHERE id = 1")
-                            add_log("Sonraki şişe bekleniyor...")
-                        state_changed = True
-
-            elif mode == "YIKAMA":
-                wash_duration = config_row["washDurationMs"] if config_row else 30000
-                wash_interval = config_row["washValveIntervalMs"] if config_row else 2000
-                
-                sim_state.wash_timer += 500
-                if sim_state.wash_timer >= wash_duration:
-                    sim_state.wash_timer = 0
-                    db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', isWashingDone = 1 WHERE id = 1")
-                    db.execute("UPDATE valves SET isOpen = 0")
-                    add_log("Yıkama işlemi başarıyla tamamlandı. Sistem beklemede.")
-                    state_changed = True
-                else:
-                    valves_list = db.fetchall("SELECT id FROM valves WHERE enabled = 1")
-                    if valves_list:
-                        active_idx = int(sim_state.wash_timer / wash_interval) % len(valves_list)
-                        active_valve_id = valves_list[active_idx]["id"]
-                        db.execute("UPDATE valves SET isOpen = 0")
-                        db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (active_valve_id,))
-                        state_changed = True
-
-            elif mode == "TAHLIYE":
-                db.execute("UPDATE valves SET isOpen = 1 WHERE enabled = 1")
-                if tank_level < 100:
-                    tank_level = min(100, tank_level + 2) # fill height goes to 100 (which is empty)
-                    db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (tank_level,))
-                    state_changed = True
-                else:
-                    db.execute("UPDATE system_state SET mode = 'BEKLEMEDE' WHERE id = 1")
-                    db.execute("UPDATE valves SET isOpen = 0")
-                    add_log("Tahliye tamamlandı. Şerbet kazanı boşaltıldı.")
-                    state_changed = True
-
-            if state_changed:
-                state = get_full_state_sync()
-                await sio.emit("STATE_UPDATE", state)
-
-        except Exception as e:
-            print(f"[Simulator Loop Error] {e}")
+                    # Self-healing auto reconnect with 10 seconds cooldown
+                    if not is_online and not str(port).startswith("TCP:"):
+                        last_attempt = last_reconnect_attempts.get(port, 0)
+                        if now - last_attempt > 10.0:
+                            last_reconnect_attempts[port] = now
+                            hw.connect_to_port(port, n["baudRate"])
             
-        await asyncio.sleep(0.5)
+            # 2. Auto-discovery for newly plugged-in ports (runs every 10 seconds)
+            if now - last_port_scan_time > 10.0:
+                last_port_scan_time = now
+                available_ports = hw.get_available_ports()
+                configured_ports = [hw.resolve_port_path(n["port"]) for n in nanos if n["port"]]
+                
+                for port in available_ports:
+                    resolved_p = hw.resolve_port_path(port)
+                    # If this port is not configured in DB AND not connected in memory
+                    if resolved_p not in configured_ports and resolved_p not in hw.serial_conns:
+                        print(f"[Auto Discovery] Found unregistered active serial port: {resolved_p}. Scanning...")
+                        # Try connecting with 115200 first, then 9600
+                        connected = hw.connect_to_port(port, baudrate=115200, verbose=False)
+                        if not connected:
+                            hw.connect_to_port(port, baudrate=9600, verbose=False)
+        except Exception as e:
+            pass
+        await asyncio.sleep(0.1) # Fast poll to keep serial responsive
 
-# Async Context helper to handle background loop
+# Background ultrasonic sensor reading loop
+async def ultrasonic_polling_loop():
+    while True:
+        try:
+            config_row = db.fetchone("SELECT ultrasonicTrigPin, ultrasonicEchoPin, ultrasonicDevice FROM system_config WHERE id = 1")
+            if config_row:
+                trig = config_row["ultrasonicTrigPin"]
+                echo = config_row["ultrasonicEchoPin"]
+                dev = config_row["ultrasonicDevice"]
+                hw.request_ultrasonic_distance(trig, echo, dev)
+        except Exception as e:
+            pass
+        await asyncio.sleep(2.0)
+
+# Async Context helper to handle background loops
 async def start_background_tasks(app):
     init_db()
-    app['sim_task'] = asyncio.create_task(simulation_loop())
+    
+    # Fetch and apply initial hardware and sensor configuration
+    nanos = db.fetchall("SELECT * FROM nanos")
+    sensors = db.fetchall("SELECT * FROM sensors")
+    hw.apply_config(nanos, sensors)
+    
+    # Spawn core loops
+    app['serial_task'] = asyncio.create_task(serial_polling_loop())
+    app['ultrasonic_task'] = asyncio.create_task(ultrasonic_polling_loop())
+    app['production_task'] = asyncio.create_task(prod.run_loop())
+    app['tcp_task'] = asyncio.create_task(hw.start_tcp_server(host="0.0.0.0", port=1978))
+    app['udp_task'] = asyncio.create_task(hw.start_udp_discovery_server(host="0.0.0.0", port=1978))
 
 async def cleanup_background_tasks(app):
-    app['sim_task'].cancel()
-    await app['sim_task']
+    app['serial_task'].cancel()
+    app['ultrasonic_task'].cancel()
+    app['production_task'].cancel()
+    app['tcp_task'].cancel()
+    app['udp_task'].cancel()
+    await asyncio.gather(
+        app['serial_task'], 
+        app['ultrasonic_task'], 
+        app['production_task'], 
+        app['tcp_task'], 
+        app['udp_task'], 
+        return_exceptions=True
+    )
+    hw.cleanup()
 
 # Server Startup
 if __name__ == '__main__':
