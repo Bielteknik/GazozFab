@@ -243,42 +243,69 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                  </div>
 
                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col space-y-1">
-                       <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">4. Kazan Boyu (cm)</label>
-                       <input 
-                          type="number"
-                          value={data.config.ultrasonicMaxHeightCm || 100}
-                          onChange={(e) => onUpdateConfig?.({ ultrasonicMaxHeightCm: Number(e.target.value) })}
-                          disabled={data.mode === 'OTOMATİK'}
-                          className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50"
-                       />
-                    </div>
-                    <div className="flex flex-col space-y-1">
-                       <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">5. Kritik Limit (%)</label>
-                       <input 
-                          type="number"
-                          value={data.config.ultrasonicCriticalLowPercent || 15}
-                          onChange={(e) => onUpdateConfig?.({ ultrasonicCriticalLowPercent: Number(e.target.value) })}
-                          disabled={data.mode === 'OTOMATİK'}
-                          className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50"
-                       />
-                    </div>
-                    <div className="flex flex-col space-y-1">
-                       <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">6. Gecikme (ms)</label>
-                       <input 
-                          type="number"
-                          value={data.config.ultrasonicDebounceMs || 100}
-                          onChange={(e) => onUpdateConfig?.({ ultrasonicDebounceMs: Number(e.target.value) })}
-                          disabled={data.mode === 'OTOMATİK'}
-                          className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50"
-                       />
-                    </div>
-                 </div>
-                 
-                 <div className="text-[10px] text-gray-500 leading-relaxed bg-[#1C2029]/30 p-2.5 rounded border border-gray-800/40">
-                    <p className="font-bold text-gray-400 mb-1">💡 Kazan Tanıtma Bilgilendirmesi:</p>
-                    Şerbet kazanı doluluk takibi için ultrasonik mesafe sensörü kullanılır. Bu sensör, kazanın tavanına yerleştirilir ve sıvı yüzeyine olan uzaklığı ölçer. Sıvı yüksekliği <code className="text-orange-400">Yükseklik = Toplam Kazan Boyu - Okunan Mesafe</code> formülüyle hesaplanır.
-                 </div>
+                     <div className="flex flex-col space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">4. Kazan Boyu (cm)</label>
+                        <input 
+                           type="number"
+                           value={data.config.ultrasonicMaxHeightCm || 100}
+                           onChange={(e) => onUpdateConfig?.({ ultrasonicMaxHeightCm: Number(e.target.value) })}
+                           disabled={data.mode === 'OTOMATİK'}
+                           className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50"
+                        />
+                     </div>
+                     <div className="flex flex-col space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">5. Kritik Limit (%)</label>
+                        <input 
+                           type="number"
+                           value={data.config.ultrasonicCriticalLowPercent || 15}
+                           onChange={(e) => onUpdateConfig?.({ ultrasonicCriticalLowPercent: Number(e.target.value) })}
+                           disabled={data.mode === 'OTOMATİK'}
+                           className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50"
+                        />
+                     </div>
+                     <div className="flex flex-col space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">6. Gecikme (ms)</label>
+                        <input 
+                           type="number"
+                           value={data.config.ultrasonicDebounceMs || 100}
+                           onChange={(e) => onUpdateConfig?.({ ultrasonicDebounceMs: Number(e.target.value) })}
+                           disabled={data.mode === 'OTOMATİK'}
+                           className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50"
+                        />
+                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="flex flex-col space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">7. Ölçüm Yöntemi</label>
+                        <select 
+                           value={data.config.ultrasonicMeasurementType || 'CONTINUOUS'}
+                           onChange={(e) => onUpdateConfig?.({ ultrasonicMeasurementType: e.target.value as any })}
+                           disabled={data.mode === 'OTOMATİK'}
+                           className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 disabled:opacity-50"
+                        >
+                           <option value="CONTINUOUS">Sürekli (Anlık) Ölçüm</option>
+                           <option value="CYCLE">Döngü Sonrası (Her Döngü Bitişinde)</option>
+                           <option value="CONSUMPTION">Hacim Tüketimine Göre (ml)</option>
+                        </select>
+                     </div>
+                     <div className="flex flex-col space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">8. Ölçüm Hacim Eşiği (ml)</label>
+                        <input 
+                           type="number"
+                           value={data.config.ultrasonicMeasurementIntervalMl || 2000}
+                           onChange={(e) => onUpdateConfig?.({ ultrasonicMeasurementIntervalMl: Number(e.target.value) })}
+                           disabled={data.mode === 'OTOMATİK' || data.config.ultrasonicMeasurementType !== 'CONSUMPTION'}
+                           className="w-full bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-50 disabled:opacity-30"
+                           placeholder="Örn: 2000"
+                        />
+                     </div>
+                  </div>
+                  
+                  <div className="text-[10px] text-gray-500 leading-relaxed bg-[#1C2029]/30 p-2.5 rounded border border-gray-800/40">
+                     <p className="font-bold text-gray-400 mb-1">💡 Kazan Tanıtma Bilgilendirmesi:</p>
+                     Şerbet kazanı doluluk takibi için ultrasonik mesafe sensörü kullanılır. Ölçüm yöntemi olarak <strong>Sürekli</strong>, <strong>Döngü Sonrası</strong> veya dolum hacmine bağlı olarak <strong>Tüketim Limitinde Bir</strong> tercih edilebilir. Sıvı yüksekliği <code className="text-orange-400">Yükseklik = Toplam Kazan Boyu - Okunan Mesafe</code> formülüyle hesaplanır.
+                  </div>
               </div>
               
               {/* Right Side: Visual representation & Live values */}
@@ -644,17 +671,47 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                       </div>
                       
                       <div className="flex-1 space-y-2">
-                        <div className="flex flex-col">
-                          <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz (Bağlantı)</label>
-                          <select 
-                             value={data.inputGate.nanoId || ''} 
-                             onChange={(e) => onUpdateSystemGate?.('inputGate', { nanoId: e.target.value })}
-                             disabled={!data.inputGate.enabled || data.mode === 'OTOMATİK'}
-                             className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
-                          >
-                             <option value="">Seçiniz...</option>
-                             {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
-                          </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col">
+                            <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz Türü</label>
+                            <select 
+                               value={data.inputGate.device || 'NANO'} 
+                               onChange={(e) => {
+                                 const newDevice = e.target.value as 'RASPI' | 'NANO';
+                                 onUpdateSystemGate?.('inputGate', { 
+                                   device: newDevice,
+                                   nanoId: newDevice === 'RASPI' ? 'RASPI' : '' 
+                                 });
+                               }}
+                               disabled={!data.inputGate.enabled || data.mode === 'OTOMATİK'}
+                               className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                            >
+                               <option value="RASPI">Raspberry Pi 5</option>
+                               <option value="NANO">Arduino Nano</option>
+                            </select>
+                          </div>
+                          
+                          {(!data.inputGate.device || data.inputGate.device === 'NANO') ? (
+                            <div className="flex flex-col">
+                              <label className="text-[9px] text-gray-500 font-bold mb-1">Nano Seçimi</label>
+                              <select 
+                                 value={data.inputGate.nanoId && data.inputGate.nanoId !== 'RASPI' ? data.inputGate.nanoId : ''} 
+                                 onChange={(e) => onUpdateSystemGate?.('inputGate', { nanoId: e.target.value })}
+                                 disabled={!data.inputGate.enabled || data.mode === 'OTOMATİK'}
+                                 className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                              >
+                                 <option value="">Seçiniz...</option>
+                                 {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
+                              </select>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <label className="text-[9px] text-gray-500 font-bold mb-1">Bağlantı</label>
+                              <div className="text-[10px] text-blue-400 font-semibold px-2 py-1.5 bg-[#1C2029] border border-[#374151] rounded select-none truncate">
+                                Pi 5 Dahili GPIO
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex space-x-2">
                           <div className="flex flex-col flex-1 min-w-0">
@@ -765,17 +822,47 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                       </div>
 
                       <div className="flex-1 space-y-2">
-                        <div className="flex flex-col">
-                          <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz (Bağlantı)</label>
-                          <select 
-                             value={data.outputGate.nanoId || ''} 
-                             onChange={(e) => onUpdateSystemGate?.('outputGate', { nanoId: e.target.value })}
-                             disabled={!data.outputGate.enabled || data.mode === 'OTOMATİK'}
-                             className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
-                          >
-                             <option value="">Seçiniz...</option>
-                             {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
-                          </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col">
+                            <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz Türü</label>
+                            <select 
+                               value={data.outputGate.device || 'NANO'} 
+                               onChange={(e) => {
+                                 const newDevice = e.target.value as 'RASPI' | 'NANO';
+                                 onUpdateSystemGate?.('outputGate', { 
+                                   device: newDevice,
+                                   nanoId: newDevice === 'RASPI' ? 'RASPI' : '' 
+                                 });
+                               }}
+                               disabled={!data.outputGate.enabled || data.mode === 'OTOMATİK'}
+                               className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                            >
+                               <option value="RASPI">Raspberry Pi 5</option>
+                               <option value="NANO">Arduino Nano</option>
+                            </select>
+                          </div>
+                          
+                          {(!data.outputGate.device || data.outputGate.device === 'NANO') ? (
+                            <div className="flex flex-col">
+                              <label className="text-[9px] text-gray-500 font-bold mb-1">Nano Seçimi</label>
+                              <select 
+                                 value={data.outputGate.nanoId && data.outputGate.nanoId !== 'RASPI' ? data.outputGate.nanoId : ''} 
+                                 onChange={(e) => onUpdateSystemGate?.('outputGate', { nanoId: e.target.value })}
+                                 disabled={!data.outputGate.enabled || data.mode === 'OTOMATİK'}
+                                 className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                              >
+                                 <option value="">Seçiniz...</option>
+                                 {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
+                              </select>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <label className="text-[9px] text-gray-500 font-bold mb-1">Bağlantı</label>
+                              <div className="text-[10px] text-blue-400 font-semibold px-2 py-1.5 bg-[#1C2029] border border-[#374151] rounded select-none truncate">
+                                Pi 5 Dahili GPIO
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex space-x-2">
                           <div className="flex flex-col flex-1 min-w-0">
@@ -897,17 +984,47 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                           </div>
 
                           <div className="flex-1 space-y-2">
-                            <div className="flex flex-col">
-                              <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz (Bağlantı)</label>
-                              <select 
-                                 value={gate.nanoId || ''} 
-                                 onChange={(e) => onUpdateGate?.(gate.id!, { nanoId: e.target.value })}
-                                 disabled={!gate.enabled || data.mode === 'OTOMATİK'}
-                                 className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
-                              >
-                                 <option value="">Seçiniz...</option>
-                                 {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
-                              </select>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex flex-col">
+                                <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz Türü</label>
+                                <select 
+                                   value={gate.device || 'NANO'} 
+                                   onChange={(e) => {
+                                     const newDevice = e.target.value as 'RASPI' | 'NANO';
+                                     onUpdateGate?.(gate.id!, { 
+                                       device: newDevice,
+                                       nanoId: newDevice === 'RASPI' ? 'RASPI' : '' 
+                                     });
+                                   }}
+                                   disabled={!gate.enabled || data.mode === 'OTOMATİK'}
+                                   className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                                >
+                                   <option value="RASPI">Raspberry Pi 5</option>
+                                   <option value="NANO">Arduino Nano</option>
+                                </select>
+                              </div>
+                              
+                              {(!gate.device || gate.device === 'NANO') ? (
+                                <div className="flex flex-col">
+                                  <label className="text-[9px] text-gray-500 font-bold mb-1">Nano Seçimi</label>
+                                  <select 
+                                     value={gate.nanoId && gate.nanoId !== 'RASPI' ? gate.nanoId : ''} 
+                                     onChange={(e) => onUpdateGate?.(gate.id!, { nanoId: e.target.value })}
+                                     disabled={!gate.enabled || data.mode === 'OTOMATİK'}
+                                     className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                                  >
+                                     <option value="">Seçiniz...</option>
+                                     {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
+                                  </select>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col">
+                                  <label className="text-[9px] text-gray-500 font-bold mb-1">Bağlantı</label>
+                                  <div className="text-[10px] text-blue-400 font-semibold px-2 py-1.5 bg-[#1C2029] border border-[#374151] rounded select-none truncate">
+                                    Pi 5 Dahili GPIO
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <div className="flex space-x-2">
                               <div className="flex flex-col flex-1 min-w-0">
@@ -1092,17 +1209,47 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                   </div>
                   
                   <div className="flex-1 space-y-2">
-                    <div className="flex flex-col">
-                      <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz (Bağlantı)</label>
-                      <select 
-                         value={valve.nanoId || ''} 
-                         onChange={(e) => onUpdateValve?.(valve.id, { nanoId: e.target.value })}
-                         disabled={!valve.enabled || data.mode === 'OTOMATİK'}
-                         className="w-full min-w-0 bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded pl-2 pr-6 py-1 truncate outline-none disabled:opacity-50"
-                      >
-                         <option value="">Seçiniz...</option>
-                         {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id} - {n.name}</option>)}
-                      </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <label className="text-[9px] text-gray-500 font-bold mb-1">Cihaz Türü</label>
+                        <select 
+                           value={valve.device || 'NANO'} 
+                           onChange={(e) => {
+                             const newDevice = e.target.value as 'RASPI' | 'NANO';
+                             onUpdateValve?.(valve.id, { 
+                               device: newDevice,
+                               nanoId: newDevice === 'RASPI' ? 'RASPI' : '' 
+                             });
+                           }}
+                           disabled={!valve.enabled || data.mode === 'OTOMATİK'}
+                           className="bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                        >
+                           <option value="RASPI">Raspberry Pi 5</option>
+                           <option value="NANO">Arduino Nano</option>
+                        </select>
+                      </div>
+                      
+                      {(!valve.device || valve.device === 'NANO') ? (
+                        <div className="flex flex-col">
+                          <label className="text-[9px] text-gray-500 font-bold mb-1">Nano Seçimi</label>
+                          <select 
+                             value={valve.nanoId && valve.nanoId !== 'RASPI' ? valve.nanoId : ''} 
+                             onChange={(e) => onUpdateValve?.(valve.id, { nanoId: e.target.value })}
+                             disabled={!valve.enabled || data.mode === 'OTOMATİK'}
+                             className="w-full min-w-0 bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded pl-2 pr-6 py-1 truncate outline-none disabled:opacity-50"
+                          >
+                             <option value="">Seçiniz...</option>
+                             {data.nanos.map(n => <option key={n.id} value={n.id}>{n.id} - {n.name}</option>)}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col">
+                          <label className="text-[9px] text-gray-500 font-bold mb-1">Bağlantı</label>
+                          <div className="text-[10px] text-blue-400 font-semibold px-2 py-1 bg-[#1C2029] border border-[#374151] rounded select-none truncate">
+                            Pi 5 Dahili GPIO
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex space-x-2">
                       <div className="flex flex-col flex-1 min-w-0">
@@ -1110,7 +1257,7 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                         <input 
                           type="text" 
                           value={valve.pin || ''} 
-                          placeholder="Örn: D3, A0"
+                          placeholder={valve.device === 'RASPI' ? 'Örn: GPIO23' : 'Örn: D3, A0'}
                           onChange={(e) => onUpdateValve?.(valve.id, { pin: e.target.value })}
                           disabled={!valve.enabled || data.mode === 'OTOMATİK'}
                           className="w-full min-w-0 bg-[#1C2029] border border-[#374151] text-[10px] font-mono text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
@@ -1163,8 +1310,20 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                            disabled={!valve.enabled || data.mode === 'OTOMATİK'}
                            className="w-full min-w-0 bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
                         >
-                           <option value="NO">NO (Normalde Açık)</option>
-                           <option value="NC">NC (Normalde Kapalı)</option>
+                           <option value="NO">NO (Açık)</option>
+                           <option value="NC">NC (Kapalı)</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <label className="text-[9px] text-gray-500 font-bold mb-1">Tetikleme</label>
+                        <select 
+                           value={valve.relayInversion ? 'LOW' : 'HIGH'} 
+                           onChange={(e) => onUpdateValve?.(valve.id, { relayInversion: e.target.value === 'LOW' })}
+                           disabled={!valve.enabled || data.mode === 'OTOMATİK'}
+                           className="w-full min-w-0 bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
+                        >
+                           <option value="HIGH">Aktif Yük. (5V)</option>
+                           <option value="LOW">Aktif Düş. (0V)</option>
                         </select>
                       </div>
                       <div className="flex flex-col flex-1 min-w-0">
@@ -1175,7 +1334,7 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                            disabled={!valve.enabled || data.mode === 'OTOMATİK'}
                            className="w-full min-w-0 bg-[#1C2029] border border-[#374151] text-[10px] text-gray-300 rounded px-2 py-1 outline-none disabled:opacity-50"
                         >
-                           <option value="DIGITAL">Dijital (HIGH/LOW)</option>
+                           <option value="DIGITAL">Dijital</option>
                            <option value="PWM">PWM</option>
                         </select>
                       </div>

@@ -15,8 +15,8 @@ export const INITIAL_STATE: SystemData = {
   sensors: [],
   terminalLogs: ['Sistem Başlatıldı. Bağlantı bekleniyor...'],
   serialPorts: [],
-  inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true, pin: 'G1' },
-  outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true, pin: 'G2' },
+  inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true, pin: 'G1', device: 'NANO' },
+  outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true, pin: 'G2', device: 'NANO' },
   extraGates: [],
   cycleHistory: [],
   activeAlerts: [],
@@ -51,7 +51,9 @@ export const INITIAL_STATE: SystemData = {
     ultrasonicEchoPin: '24',
     ultrasonicMaxHeightCm: 100,
     ultrasonicCriticalLowPercent: 15,
-    ultrasonicDebounceMs: 100
+    ultrasonicDebounceMs: 100,
+    ultrasonicMeasurementType: 'CONTINUOUS',
+    ultrasonicMeasurementIntervalMl: 2000
   },
   recipes: [],
   isWashingDone: false,
@@ -169,7 +171,7 @@ export function useSocketState() {
       for (let id = 10; id <= 18; id++) { if (!usedIds.has(id)) { nextId = id; break; } }
       if (nextId > 18) return;
       const pinMap: Record<number, string> = { 10: '2', 11: '3', 12: '4', 13: '5', 14: '6', 15: '7', 16: '8', 17: '11', 18: '12' };
-      const valve = { id: nextId, name: `Vana ${nextId - 9}`, isOpen: false, mode: 'CONTINUOUS' as const, enabled: true, pin: pinMap[nextId] };
+      const valve = { id: nextId, name: `Vana ${nextId - 9}`, isOpen: false, mode: 'CONTINUOUS' as const, enabled: true, pin: pinMap[nextId], device: 'NANO' as const, relayInversion: false };
       emitAction('ADD_VALVE', { valve });
       if (!isConnected) setData(prev => ({
         ...prev,
@@ -258,7 +260,7 @@ export function useSocketState() {
       }));
     },
     addGate: () => {
-      const gate = { id: `GATE-${Date.now()}`, name: 'Yeni Kilit', pin: '0', isOpen: false, enabled: true, position: 0 };
+      const gate = { id: `GATE-${Date.now()}`, name: 'Yeni Kilit', pin: '0', isOpen: false, enabled: true, position: 0, device: 'NANO' as const };
       emitAction('ADD_GATE', { gate });
       if (!isConnected) setData(prev => ({
         ...prev,

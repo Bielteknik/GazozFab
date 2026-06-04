@@ -55,6 +55,8 @@ Tüm genel otomasyon parametrelerini saklar. Tek satırlık (`id = 1`) bir tablo
 | `ultrasonicMaxHeightCm` | INTEGER | DEFAULT 100 | Şerbet tankının tavan-taban boyu (cm) |
 | `ultrasonicCriticalLowPercent`| INTEGER | DEFAULT 15 | Kritik alt limit doluluk yüzdesi (%) |
 | `ultrasonicDebounceMs` | INTEGER | DEFAULT 100 | Seviye sensörü okuma kararlılık gecikmesi (ms) |
+| `ultrasonicMeasurementType` | TEXT | DEFAULT 'CONTINUOUS' | Ölçüm yöntemi (`CONTINUOUS`, `CYCLE`, `CONSUMPTION`) |
+| `ultrasonicMeasurementIntervalMl` | INTEGER | DEFAULT 2000 | Tüketim bazlı ölçüm için hacim eşiği (ml) |
 
 
 ---
@@ -99,7 +101,9 @@ Dolum valflerinin hangi denetleyiciye ve hangi pinlere bağlı olduğunu dinamik
 | `enabled` | BOOLEAN | DEFAULT 1 | Valf fiziksel olarak aktif mi (Bypass durumu)? |
 | `isOpen` | BOOLEAN | DEFAULT 0 | Arayüz animasyonu ve durum takibi için açık/kapalı bilgisi |
 | `pulseDuration` | INTEGER | DEFAULT 1000 | Bu valf için varsayılan açılma süresi (ms) |
+| `device` | TEXT | DEFAULT 'NANO' | Valfin bağlı olduğu cihaz türü (`RASPI` veya `NANO`) |
 | `nanoId` | TEXT | FK -> nanos.id | Valfin bağlı olduğu Arduino Nano kimliği |
+| `relayInversion` | BOOLEAN | DEFAULT 0 | Röle tetikleme tipi (0: Active High, 1: Active Low) |
 
 ---
 
@@ -134,6 +138,7 @@ Dolum valflerinin hangi denetleyiciye ve hangi pinlere bağlı olduğunu dinamik
 | `speed` | INTEGER | DEFAULT 800 | Motor adımlama hızı gecikmesi (µs) |
 | `isOpen` | BOOLEAN | DEFAULT 0 | Kapı anlık durumu (0: Kapalı, 1: Açık) |
 | `enabled` | BOOLEAN | DEFAULT 1 | Kapı mekanizması aktif/devrede mi? |
+| `device` | TEXT | DEFAULT 'NANO' | Kapının bağlı olduğu cihaz türü (`RASPI` veya `NANO`) |
 | `nanoId` | TEXT | FK -> nanos.id | Kapının bağlı olduğu Arduino Nano kimliği |
 | `position` | INTEGER | DEFAULT 0 | Motorun anlık adım pozisyon değeri |
 

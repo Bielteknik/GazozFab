@@ -47,7 +47,9 @@ CREATE TABLE IF NOT EXISTS system_config (
     ultrasonicEchoPin TEXT DEFAULT '24',
     ultrasonicMaxHeightCm INTEGER DEFAULT 100,
     ultrasonicCriticalLowPercent INTEGER DEFAULT 15,
-    ultrasonicDebounceMs INTEGER DEFAULT 100
+    ultrasonicDebounceMs INTEGER DEFAULT 100,
+    ultrasonicMeasurementType TEXT DEFAULT 'CONTINUOUS', -- 'CONTINUOUS', 'CYCLE', 'CONSUMPTION'
+    ultrasonicMeasurementIntervalMl INTEGER DEFAULT 2000
 );
 
 
@@ -75,7 +77,9 @@ CREATE TABLE IF NOT EXISTS valves (
     isOpen BOOLEAN DEFAULT 0,
     mode TEXT DEFAULT 'CONTINUOUS', -- 'CONTINUOUS', 'PULSE'
     pulseDuration INTEGER DEFAULT 1000,
+    device TEXT DEFAULT 'NANO', -- 'RASPI', 'NANO'
     nanoId TEXT,
+    relayInversion BOOLEAN DEFAULT 0, -- 0: Active High, 1: Active Low
     FOREIGN KEY (nanoId) REFERENCES nanos(id) ON DELETE SET NULL
 );
 
@@ -106,6 +110,7 @@ CREATE TABLE IF NOT EXISTS gates (
     speed INTEGER DEFAULT 800,
     isOpen BOOLEAN DEFAULT 0,
     enabled BOOLEAN DEFAULT 1,
+    device TEXT DEFAULT 'NANO', -- 'RASPI', 'NANO'
     nanoId TEXT,
     position INTEGER DEFAULT 0,
     FOREIGN KEY (nanoId) REFERENCES nanos(id) ON DELETE SET NULL
@@ -135,8 +140,36 @@ CREATE TABLE IF NOT EXISTS active_alerts (
     resolved BOOLEAN DEFAULT 0
 );
 
+-- 9. Sistem Canlı Durum Tablosu (system_state)
+-- Sistemin anlık operasyonel durumlarını saklar. Tek satırlık (id = 1) bir tablodur.
+CREATE TABLE IF NOT EXISTS system_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    mode TEXT DEFAULT 'BEKLEMEDE',
+    autoState TEXT DEFAULT 'BEKLEMEDE',
+    inputCount INTEGER DEFAULT 0,
+    outputCount INTEGER DEFAULT 0,
+    tankLevelCm INTEGER DEFAULT 85,
+    isWashingDone BOOLEAN DEFAULT 0,
+    isWashingRequired BOOLEAN DEFAULT 0,
+    stopAfterCycleRequested BOOLEAN DEFAULT 0,
+    activePrompt TEXT DEFAULT NULL -- JSON string veya NULL
+);
+
+-- 10. Haberleşme / Sistem Logları Tablosu (terminal_logs)
+CREATE TABLE IF NOT EXISTS terminal_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    message TEXT NOT NULL
+);
+
 -- ====================================================================
 -- BAŞLANGIÇ VERİLERİNİ TOHUMLAMA (SEED DATA)
 -- ====================================================================
--- Varsayılan sistem ayarını oluştur
+-- Varsayılan sistem ayarını ve durumunu oluştur
 INSERT OR IGNORE INTO system_config (id) VALUES (1);
+INSERT OR IGNORE INTO system_state (id) VALUES (1);
+
+-- Varsayılan kapıları/kilitleri oluştur
+INSERT OR IGNORE INTO gates (id, name, pin, isOpen, enabled, device) VALUES ('inputGate', 'Giriş Kapısı', 'G1', 0, 1, 'NANO');
+INSERT OR IGNORE INTO gates (id, name, pin, isOpen, enabled, device) VALUES ('outputGate', 'Çıkış Kapısı', 'G2', 0, 1, 'NANO');
+

@@ -113,12 +113,21 @@ export function OperatorControl({
           {/* Step 2: Manual Fill */}
           <button
             onClick={handleStartFilling}
-            disabled={isFilling}
+            disabled={isFilling || data.inputGate.isOpen || data.outputGate.isOpen}
+            title={
+              isFilling 
+                ? 'Dolum devam ediyor' 
+                : (data.inputGate.isOpen || data.outputGate.isOpen) 
+                  ? 'Giriş/Çıkış kilitleri açıkken dolum yapılamaz!' 
+                  : 'Dolum işlemini başlat'
+            }
             className={cn(
               "flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded font-bold text-[11px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden",
               isFilling 
                 ? "bg-blue-600/20 border-blue-500 text-blue-400" 
-                : "bg-blue-900/40 border-blue-800 text-blue-400 hover:bg-blue-900 disabled:opacity-50"
+                : (data.inputGate.isOpen || data.outputGate.isOpen)
+                  ? "bg-red-950/20 border-red-900/40 text-red-500/50 opacity-60 cursor-not-allowed"
+                  : "bg-blue-900/40 border-blue-800 text-blue-400 hover:bg-blue-900 disabled:opacity-50"
             )}
           >
             {isFilling && (
@@ -129,7 +138,13 @@ export function OperatorControl({
               />
             )}
             <Droplet size={14} className={cn(isFilling && "animate-bounce")} />
-            <span>{isFilling ? 'DOLUM YAPILIYOR...' : 'DOLUMU BAŞLAT'}</span>
+            <span>
+              {isFilling 
+                ? 'DOLUM YAPILIYOR...' 
+                : (data.inputGate.isOpen || data.outputGate.isOpen) 
+                  ? 'KİLİTLER AÇIK (BLOKE)' 
+                  : 'DOLUMU BAŞLAT'}
+            </span>
           </button>
 
           {/* Step 3: Exit Gate */}
@@ -160,17 +175,19 @@ export function OperatorControl({
       </div>
 
       {/* Recipe Selector - Kept same as Dashboard */}
-      {!isAuto && !isWashing && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 flex-shrink-0">
-          {data.recipes.map((recipe) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 flex-shrink-0">
+        {data.recipes.length > 0 ? (
+          data.recipes.map((recipe) => (
             <button
               key={recipe.id}
+              disabled={isAuto || isWashing}
               onClick={() => onSelectRecipe(recipe.id)}
               className={cn(
-                "p-2 rounded border-2 transition-all flex flex-col items-start gap-1 relative overflow-hidden",
+                "p-2 rounded border-2 transition-all flex flex-col items-start gap-1 relative overflow-hidden text-left w-full",
                 data.config.recipeId === recipe.id 
                   ? "bg-blue-900/20 border-blue-500 ring-4 ring-blue-500/10" 
-                  : "bg-[#151921] border-[#2D333F] hover:border-gray-500"
+                  : "bg-[#151921] border-[#2D333F] hover:border-gray-500",
+                (isAuto || isWashing) && "opacity-60 cursor-not-allowed"
               )}
             >
               <div className="flex justify-between w-full items-center">
@@ -192,9 +209,14 @@ export function OperatorControl({
                 </div>
               </div>
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <div className="col-span-full bg-[#151921] border border-dashed border-gray-700/50 rounded p-2 text-center text-xs text-gray-500 font-bold flex items-center justify-center gap-2 h-[48px] select-none">
+            <AlertTriangle size={14} className="text-amber-500/70" />
+            <span>Sistemde tanımlı reçete bulunmuyor. Ayarlar sayfasından reçete ekleyin.</span>
+          </div>
+        )}
+      </div>
 
       {/* Main Flow Visualization - Same layout as Dashboard */}
       <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">

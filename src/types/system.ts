@@ -23,6 +23,8 @@ export interface ValveState {
   relayType?: 'NO' | 'NC';
   signalType?: 'DIGITAL' | 'PWM';
   speed?: number; // 0-100% or PWM val
+  relayInversion?: boolean; // true: Active Low, false: Active High
+  device?: 'RASPI' | 'NANO';
 }
 
 export interface GateState {
@@ -39,6 +41,7 @@ export interface GateState {
   stepsToClose?: number;
   speed?: number;
   acceleration?: number;
+  device?: 'RASPI' | 'NANO';
 }
 
 export interface NanoState {
@@ -123,6 +126,8 @@ export interface SystemConfig {
   ultrasonicMaxHeightCm: number;
   ultrasonicCriticalLowPercent: number;
   ultrasonicDebounceMs: number;
+  ultrasonicMeasurementType: 'CONTINUOUS' | 'CYCLE' | 'CONSUMPTION';
+  ultrasonicMeasurementIntervalMl: number;
 }
 
 export interface Recipe {

@@ -604,6 +604,32 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                             className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
                                          />
                                       </div>
+                                    </div>
+
+                                   <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">7. Ölçüm Yöntemi</label>
+                                         <select 
+                                            value={data.config.ultrasonicMeasurementType || 'CONTINUOUS'}
+                                            onChange={(e) => onUpdateConfig?.({ ultrasonicMeasurementType: e.target.value as any })}
+                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50"
+                                         >
+                                            <option value="CONTINUOUS">Sürekli (Anlık) Ölçüm</option>
+                                            <option value="CYCLE">Döngü Sonrası (Her Döngü Bitişinde)</option>
+                                            <option value="CONSUMPTION">Hacim Tüketimine Göre (ml)</option>
+                                         </select>
+                                      </div>
+                                      <div className="space-y-1">
+                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">8. Ölçüm Hacim Eşiği (ml)</label>
+                                         <input 
+                                            type="number"
+                                            value={data.config.ultrasonicMeasurementIntervalMl || 2000}
+                                            onChange={(e) => onUpdateConfig?.({ ultrasonicMeasurementIntervalMl: Number(e.target.value) })}
+                                            disabled={data.config.ultrasonicMeasurementType !== 'CONSUMPTION'}
+                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-30"
+                                            placeholder="Örn: 2000"
+                                         />
+                                      </div>
                                    </div>
 
                                    <div className="bg-[#1C2029]/50 p-4 border border-[#2D333F] rounded space-y-3">
