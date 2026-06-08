@@ -269,6 +269,25 @@ class HardwareManager:
                 print(f"[Hardware] Connecting to serial port: {resolved_port} (configured as: {port}) ({baudrate} baud)...")
             
             conn = serial.Serial(resolved_port, baudrate, timeout=1.0)
+            
+            # If it is a hardware serial UART on Pi (serial0, ttyAMA0, ttyS0), bypass handshake and statically register it
+            is_hardware_uart = any(x in resolved_port for x in ["serial0", "ttyAMA0", "ttyS0"])
+            if is_hardware_uart:
+                configured_id = None
+                configured_name = None
+                for n in getattr(self, "configured_nanos", []):
+                    if n.get("port") and self.resolve_port_path(n.get("port")) == resolved_port:
+                        configured_id = n.get("id")
+                        configured_name = n.get("name") or configured_id
+                        break
+                if configured_id:
+                    self.serial_conns[resolved_port] = conn
+                    self.port_to_id_map[resolved_port] = configured_id
+                    print(f"[Hardware] Statically mapped hardware UART port {resolved_port} to Nano ID '{configured_id}' (Bypassed handshake)")
+                    if getattr(self, "on_nano_discovered", None):
+                        self.on_nano_discovered(configured_id, configured_name, resolved_port, baudrate)
+                    return True
+
             time.sleep(2.0) # Wait for Arduino to boot and broadcast its identity
             
             # Read any startup broadcast from the buffer first

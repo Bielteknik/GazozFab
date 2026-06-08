@@ -7,7 +7,7 @@
  * Features:
  *  - Auto-discovery broadcast on boot (ID:ValvesNano;NAME:ValvesNano)
  *  - WHOAMI handshake responder
- *  - Individual valve control on digital outputs D2 through D9
+ *  - Individual valve control on digital outputs D2 through D13
  *  - Global emergency valve safety shutdown (VALVE:ALL_OFF)
  *  - Dynamic UDP Server Discovery (Port 1978 broadcast)
  */
@@ -21,26 +21,27 @@ const String NANO_ID = "ValvesNano";
 const String NANO_NAME = "ValvesNano";
 
 // --- Feature Toggle ---
-const bool USE_ETHERNET =
-    false; // Set to true if an Ethernet Shield is attached
+const bool USE_ETHERNET = false; // Set to true if an Ethernet Shield is attached
 
 // --- Network Configuration ---
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x02};
 IPAddress ip(192, 168, 1, 16); // Fallback static IP if DHCP fails
-IPAddress serverIP(192, 168, 1,
-                   5);      // Dynamically updated, fallback is 192.168.1.5
+IPAddress serverIP(192, 168, 1, 5);      // Dynamically updated, fallback is 192.168.1.5
 const uint16_t port = 1978; // TCP and UDP Port
 
 EthernetClient client;
 bool ethernetConnected = false;
 unsigned long lastReconnectAttempt = 0;
 bool serverFound = false;
-bool ethernetHardwarePresent =
-    false; // Automatically set depending on hardware check
+bool ethernetHardwarePresent = false; // Automatically set depending on hardware check
 
 // --- Valve Pin Mappings ---
 const int VALVE_MIN_PIN = 2; // D2
 const int VALVE_MAX_PIN = 13; // D13
+
+// --- Non-blocking Buffers ---
+String serialBuffer = "";
+String ethernetBuffer = "";
 
 // --- Function Declarations ---
 void sendResponse(const String &msg);
@@ -48,13 +49,16 @@ void processCommand(const String &cmd);
 void allValvesOff();
 void checkEthernet();
 bool discoverServerIP();
+String getPart(String data, char separator, int index);
+void readSerialNonBlocking();
+void readEthernetNonBlocking();
 
 void setup() {
   // Initialize Serial
   Serial.begin(115200);
   delay(1000);
 
-  // Setup Valve Pins (D2 to D9) as Outputs
+  // Setup Valve Pins (D2 to D13) as Outputs
   for (int pin = VALVE_MIN_PIN; pin <= VALVE_MAX_PIN; pin++) {
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW); // Start with all valves closed (OFF)
@@ -87,8 +91,7 @@ void setup() {
     }
 
     if (!ethernetHardwarePresent) {
-      Serial.println(F("[Ethernet] No functioning Ethernet hardware detected. "
-                       "Running in Serial-only mode."));
+      Serial.println(F("[Ethernet] No functioning Ethernet hardware detected. Running in Serial-only mode."));
     } else {
       Serial.print(F("[Ethernet] IP Address: "));
       Serial.println(Ethernet.localIP());
@@ -98,32 +101,69 @@ void setup() {
     }
   } else {
     ethernetHardwarePresent = false;
-    Serial.println(F(
-        "[System] Running in Serial-only mode (Ethernet disabled by config)."));
+    Serial.println(F("[System] Running in Serial-only mode (Ethernet disabled by config)."));
   }
 }
 
 void loop() {
-  // 1. Handle Serial incoming commands
-  if (Serial.available() > 0) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-    if (cmd.length() > 0) {
-      processCommand(cmd);
-    }
-  }
+  // 1. Handle Serial incoming commands (Non-blocking)
+  readSerialNonBlocking();
 
-  // 2. Handle Network TCP connection & incoming commands
+  // 2. Handle Network TCP connection & incoming commands (Non-blocking)
   if (ethernetHardwarePresent) {
     checkEthernet();
-    if (ethernetConnected && client.available() > 0) {
-      String cmd = client.readStringUntil('\n');
-      cmd.trim();
-      if (cmd.length() > 0) {
-        processCommand(cmd);
-      }
+    if (ethernetConnected) {
+      readEthernetNonBlocking();
     }
   }
+}
+
+// Non-blocking Serial port reader
+void readSerialNonBlocking() {
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+    if (c == '\n') {
+      serialBuffer.trim();
+      if (serialBuffer.length() > 0) {
+        processCommand(serialBuffer);
+      }
+      serialBuffer = ""; // Reset buffer
+    } else if (c != '\r') {
+      serialBuffer += c;
+    }
+  }
+}
+
+// Non-blocking Ethernet client reader
+void readEthernetNonBlocking() {
+  while (client.available() > 0) {
+    char c = client.read();
+    if (c == '\n') {
+      ethernetBuffer.trim();
+      if (ethernetBuffer.length() > 0) {
+        processCommand(ethernetBuffer);
+      }
+      ethernetBuffer = ""; // Reset buffer
+    } else if (c != '\r') {
+      ethernetBuffer += c;
+    }
+  }
+}
+
+// String splitting helper
+String getPart(String data, char separator, int index) {
+  int found = 0;
+  int strIndex[] = {0, -1};
+  int maxIndex = data.length() - 1;
+
+  for (int i = 0; i <= maxIndex && found <= index; i++) {
+    if (data.charAt(i) == separator || i == maxIndex) {
+        found++;
+        strIndex[0] = strIndex[1] + 1;
+        strIndex[1] = (i == maxIndex) ? i + 1 : i;
+    }
+  }
+  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
 void sendResponse(const String &msg) {
@@ -137,8 +177,7 @@ void sendResponse(const String &msg) {
 bool discoverServerIP() {
   if (!ethernetHardwarePresent)
     return false;
-  Serial.println(
-      F("[Discovery] Starting server discovery via UDP Broadcast..."));
+  Serial.println(F("[Discovery] Starting server discovery via UDP Broadcast..."));
 
   EthernetUDP udp;
   if (udp.begin(port) == 0) {
@@ -231,17 +270,14 @@ void processCommand(const String &cmd) {
   // Format: VALVE:ON:D2 or VALVE:OFF:D2
   else if (cmd.startsWith("VALVE:ON:") || cmd.startsWith("VALVE:OFF:")) {
     bool state = cmd.startsWith("VALVE:ON:");
-    int prefixLen = state ? 9 : 10;
-
-    String pinStr = cmd.substring(prefixLen); // e.g. "D2" or "2"
+    String pinStr = getPart(cmd, ':', 2); // get "D2" or "2"
     pinStr.replace("D", "");
     int pin = pinStr.toInt();
 
     // Verify the pin is in the valid valve range
     if (pin >= VALVE_MIN_PIN && pin <= VALVE_MAX_PIN) {
       digitalWrite(pin, state ? HIGH : LOW);
-      sendResponse("STATUS:VALVE:" + String(pin) + ":" +
-                   (state ? "ON" : "OFF"));
+      sendResponse("STATUS:VALVE:" + String(pin) + ":" + (state ? "ON" : "OFF"));
     }
   }
   // Handle emergency close all valves
