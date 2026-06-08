@@ -71,7 +71,7 @@ class HardwareManager:
         # Format: EVENT:PIN:D2:ACTIVE or EVENT:PIN:D12:ACTIVE
         if "EVENT:PIN:" in clean_line:
             parts = clean_line.split(":")
-            if len(parts) >= 4:
+            if len(parts) >= 4 and parts[3].strip() == "ACTIVE":
                 pin_str = parts[2].strip() # e.g. "D12"
                 norm_pin = pin_str.replace("D", "").strip()
                 

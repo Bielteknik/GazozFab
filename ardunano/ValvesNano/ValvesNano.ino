@@ -40,7 +40,7 @@ bool ethernetHardwarePresent =
 
 // --- Valve Pin Mappings ---
 const int VALVE_MIN_PIN = 2; // D2
-const int VALVE_MAX_PIN = 9; // D9
+const int VALVE_MAX_PIN = 13; // D13
 
 // --- Function Declarations ---
 void sendResponse(const String &msg);
