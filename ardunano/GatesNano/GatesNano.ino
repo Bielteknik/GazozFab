@@ -60,6 +60,11 @@ void setup() {
 
   delay(500);
 
+  // Seri port açılış gürültülerini temizle
+  while (Serial.available() > 0) {
+    Serial.read();
+  }
+
   // Kimlik Yayını (Pi5 keşfi için)
   Serial.println("ID:GatesNano;NAME:GatesNano");
   
