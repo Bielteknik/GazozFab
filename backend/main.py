@@ -90,6 +90,11 @@ def init_db():
                         conn.execute(stmt_strip)
                     except Exception as ex:
                         pass
+            # Ensure all default valves are set to Active Low (relayInversion = 1)
+            try:
+                conn.execute("UPDATE valves SET relayInversion = 1")
+            except:
+                pass
             conn.commit()
             conn.close()
             print("[DB] Schema check completed.")

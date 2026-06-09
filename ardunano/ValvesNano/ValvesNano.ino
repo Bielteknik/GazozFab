@@ -118,7 +118,7 @@ void loop() {
   }
 }
 
-// Non-blocking Serial port reader
+// Non-blocking Serial port reader (EMI / Noise Filtered)
 void readSerialNonBlocking() {
   while (Serial.available() > 0) {
     char c = Serial.read();
@@ -128,8 +128,8 @@ void readSerialNonBlocking() {
         processCommand(serialBuffer);
       }
       serialBuffer = ""; // Reset buffer
-    } else if (c != '\r') {
-      serialBuffer += c;
+    } else if (c >= 32 && c <= 126) {
+      serialBuffer += c; // Accept only printable ASCII characters to filter noise
     }
   }
 }

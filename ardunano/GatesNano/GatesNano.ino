@@ -118,7 +118,7 @@ void loop() {
   readSerialNonBlocking();
 }
 
-// Non-blocking Seri Okuma Fonksiyonu
+// Non-blocking Seri Okuma Fonksiyonu (EMI / Gürültü Filtreli)
 void readSerialNonBlocking() {
   while (Serial.available() > 0) {
     char c = Serial.read();
@@ -128,8 +128,8 @@ void readSerialNonBlocking() {
         processCommand(inputBuffer);
       }
       inputBuffer = ""; // Tamponu temizle
-    } else if (c != '\r') {
-      inputBuffer += c; // Karakter ekle
+    } else if (c >= 32 && c <= 126) {
+      inputBuffer += c; // Sadece standart okunabilir karakterleri tampona ekle (gürültüyü filtrele)
     }
   }
 }
