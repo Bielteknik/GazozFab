@@ -338,9 +338,7 @@ void processCommand(String cmd) {
     }
   }
 
-  else {
-    Serial.println("Bilinmeyen komut");
-  }
+
 }
 
 void durumGoster() {
