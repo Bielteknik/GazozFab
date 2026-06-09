@@ -159,6 +159,9 @@ void motorStep(int stepPin, int dirPin, bool yon, long adim) {
     digitalWrite(stepPin, LOW);
     delayMicroseconds(stepDelay);
   }
+  
+  delay(50);                      // Son adımın yerine oturması için bekle
+  digitalWrite(ENABLE_PIN, HIGH); // Akımı keserek cızırtıyı ve ısınmayı önle
 }
 
 // Dinamik Konfigürasyon Çözümleme

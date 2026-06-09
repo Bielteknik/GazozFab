@@ -345,10 +345,14 @@ def handle_distance_read(distance_cm):
     db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (int(distance_cm),))
     broadcast_callback()
 
+def handle_terminal_output(device_id, data):
+    asyncio.create_task(sio.emit('TERMINAL_OUTPUT', {'nanoId': device_id, 'data': data}))
+
 hw.on_sensor_event = handle_sensor_event
 hw.on_distance_read = handle_distance_read
 hw.on_nano_discovered = handle_nano_discovery
 hw.on_nano_disconnected = handle_nano_disconnect
+hw.on_terminal_output = handle_terminal_output
 
 # Socket event: Connect
 @sio.event
@@ -503,6 +507,7 @@ async def handle_action(sid, data):
         for k, v in config.items():
             db.execute(f"UPDATE nanos SET {k} = ? WHERE id = ?", (v, nid))
         add_log(f"Arduino Nano ({nid}) donanım ayarları güncellendi.")
+        reload_hardware_config()
 
     elif action_type == 'UPDATE_VALVE':
         vid = payload.get('id')

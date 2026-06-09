@@ -14,6 +14,7 @@ class HardwareManager:
         self.on_distance_read = None # callback(distance_cm)
         self.on_nano_discovered = None # callback(nano_id, name, port, baudrate)
         self.on_nano_disconnected = None # callback(nano_id)
+        self.on_terminal_output = None # callback(device_id, data)
         self.sensor_config = []
         self.configured_nanos = []
         self.polling_active = False
@@ -57,6 +58,13 @@ class HardwareManager:
                     return candidate
             return "/dev/ttyAMA1"
             
+        # Resolve ttyUSB0 / ttyACM0 fallback dynamically if the specified one doesn't exist
+        if "ttyusb" in normalized or "ttyacm" in normalized:
+            if not os.path.exists(port_name):
+                for candidate in ["/dev/ttyUSB0", "/dev/ttyACM0", "/dev/ttyUSB1", "/dev/ttyACM1"]:
+                    if os.path.exists(candidate):
+                        return candidate
+
         # Add support for simple "ttyAMA0" or "ttyUSB0" input by prepending "/dev/"
         if (normalized.startswith("tty") or normalized.startswith("serial")) and not port_name.startswith("/"):
             full_path = f"/dev/{port_name}"
@@ -227,6 +235,8 @@ class HardwareManager:
                     if data_line:
                         # Process sensor/ultrasonic event
                         self.process_incoming_line(final_id, data_line)
+                        if getattr(self, "on_terminal_output", None):
+                            self.on_terminal_output(final_id, f"RX: {data_line}")
                         
         except asyncio.CancelledError:
             pass
@@ -270,23 +280,23 @@ class HardwareManager:
             
             conn = serial.Serial(resolved_port, baudrate, timeout=1.0)
             
-            # If it is a hardware serial UART on Pi (serial0, ttyAMA0, ttyS0), bypass handshake and statically register it
-            is_hardware_uart = any(x in resolved_port for x in ["serial0", "ttyAMA0", "ttyS0"])
-            if is_hardware_uart:
-                configured_id = None
-                configured_name = None
-                for n in getattr(self, "configured_nanos", []):
-                    if n.get("port") and self.resolve_port_path(n.get("port")) == resolved_port:
-                        configured_id = n.get("id")
-                        configured_name = n.get("name") or configured_id
-                        break
-                if configured_id:
-                    self.serial_conns[resolved_port] = conn
-                    self.port_to_id_map[resolved_port] = configured_id
-                    print(f"[Hardware] Statically mapped hardware UART port {resolved_port} to Nano ID '{configured_id}' (Bypassed handshake)")
-                    if getattr(self, "on_nano_discovered", None):
-                        self.on_nano_discovered(configured_id, configured_name, resolved_port, baudrate)
-                    return True
+            # If the port corresponds to a configured Nano, bypass handshake and statically register it
+            configured_id = None
+            configured_name = None
+            for n in getattr(self, "configured_nanos", []):
+                cfg_port = n.get("port")
+                if cfg_port and (self.resolve_port_path(cfg_port) == resolved_port or cfg_port == port):
+                    configured_id = n.get("id")
+                    configured_name = n.get("name") or configured_id
+                    break
+
+            if configured_id:
+                self.serial_conns[resolved_port] = conn
+                self.port_to_id_map[resolved_port] = configured_id
+                print(f"[Hardware] Statically mapped port {resolved_port} to Nano ID '{configured_id}' (Bypassed handshake)")
+                if getattr(self, "on_nano_discovered", None):
+                    self.on_nano_discovered(configured_id, configured_name, resolved_port, baudrate)
+                return True
 
             time.sleep(2.0) # Wait for Arduino to boot and broadcast its identity
             
@@ -494,6 +504,17 @@ class HardwareManager:
         """Write command string to port (or broadcast to all if target_port is None)."""
         full_cmd = f"{cmd}\n" if not cmd.endswith('\n') else cmd
         encoded = full_cmd.encode('utf-8')
+        
+        # Log TX message to terminal
+        if getattr(self, "on_terminal_output", None):
+            device_id = target_port
+            if target_port:
+                resolved_p = self.resolve_port_path(target_port)
+                if resolved_p in self.port_to_id_map:
+                    device_id = self.port_to_id_map[resolved_p]
+            else:
+                device_id = "ALL"
+            self.on_terminal_output(device_id, f"TX: {cmd.strip()}")
         
         if target_port:
             # 1. Check if target_port is a connected TCP Nano ID
@@ -865,6 +886,9 @@ class HardwareManager:
                     device_id = self.port_to_id_map.get(port)
                     # Print raw outputs to server terminal for diagnosis
                     print(f"[Serial Nano -> {device_id}] {line}")
+                    
+                    if getattr(self, "on_terminal_output", None):
+                        self.on_terminal_output(device_id or "UNKNOWN", f"RX: {line}")
                     
                     # 1. Check Handshake Query reply
                     if line.startswith("ID:"):

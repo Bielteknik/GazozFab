@@ -86,13 +86,5 @@ trap cleanup INT TERM EXIT
 echo -e "${GREEN}[Sistem] Ön Yüz (Vite: 3000) ve Arka Yüz (Python: 8000) eşzamanlı başlatılıyor...${NC}"
 echo -e "${BLUE}------------------------------------------------------${NC}"
 
-# Ön yüzü başlat ve PID'sini al
-npm run dev:frontend &
-FRONTEND_PID=$!
-
-# Arka yüzü başlat ve PID'sini al
-npm run dev:backend &
-BACKEND_PID=$!
-
-# Süreçlerin bitmesini bekle
-wait $FRONTEND_PID $BACKEND_PID
+# Ön yüzü ve arka yüzü concurrently ile eşzamanlı olarak başlat ve logları anında ekrana bas
+npm run dev
