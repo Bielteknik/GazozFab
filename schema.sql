@@ -166,10 +166,55 @@ CREATE TABLE IF NOT EXISTS terminal_logs (
 -- BAŞLANGIÇ VERİLERİNİ TOHUMLAMA (SEED DATA)
 -- ====================================================================
 -- Varsayılan sistem ayarını ve durumunu oluştur
-INSERT OR IGNORE INTO system_config (id) VALUES (1);
+INSERT OR IGNORE INTO system_config (
+    id, ultrasonicDevice, ultrasonicTrigPin, ultrasonicEchoPin, 
+    ultrasonicMaxHeightCm, ultrasonicCriticalLowPercent, ultrasonicDebounceMs, 
+    ultrasonicMeasurementType
+) VALUES (1, 'GatesNano', '6', '7', 100, 15, 100, 'CONTINUOUS');
+
 INSERT OR IGNORE INTO system_state (id) VALUES (1);
 
+-- Donanım modüllerini tohumla (Nanos)
+INSERT OR IGNORE INTO nanos (id, name, port, baudRate, status) VALUES ('GatesNano', 'GatesNano', '/dev/ttyUSB0', 115200, 'OFFLINE');
+INSERT OR IGNORE INTO nanos (id, name, port, baudRate, status) VALUES ('ValvesNano', 'ValvesNano', '/dev/serial0', 115200, 'OFFLINE');
+
 -- Varsayılan kapıları/kilitleri oluştur
-INSERT OR IGNORE INTO gates (id, name, pin, isOpen, enabled, device) VALUES ('inputGate', 'Giriş Kapısı', 'G1', 0, 1, 'NANO');
-INSERT OR IGNORE INTO gates (id, name, pin, isOpen, enabled, device) VALUES ('outputGate', 'Çıkış Kapısı', 'G2', 0, 1, 'NANO');
+INSERT OR IGNORE INTO gates (
+    id, name, pin, dirPin, enablePin, stepsToOpen, stepsToClose, 
+    speed, isOpen, enabled, device, nanoId
+) VALUES ('inputGate', 'Giriş Kapısı', '5', '2', '8', 400, 400, 800, 0, 1, 'NANO', 'GatesNano');
+
+INSERT OR IGNORE INTO gates (
+    id, name, pin, dirPin, enablePin, stepsToOpen, stepsToClose, 
+    speed, isOpen, enabled, device, nanoId
+) VALUES ('outputGate', 'Çıkış Kapısı', '6', '3', '8', 400, 400, 800, 0, 1, 'NANO', 'GatesNano');
+
+-- Varsayılan sayaç sensörlerini oluştur
+INSERT OR IGNORE INTO sensors (id, name, type, pin, enabled, device, debounceMs, resistorType) 
+VALUES ('SENS-IN', 'Giriş Lazeri', 'INPUT', '4', 1, 'GatesNano', 50, 'NONE');
+
+INSERT OR IGNORE INTO sensors (id, name, type, pin, enabled, device, debounceMs, resistorType) 
+VALUES ('SENS-OUT', 'Çıkış Lazeri', 'OUTPUT', '7', 1, 'GatesNano', 50, 'NONE');
+
+-- Varsayılan valfleri oluştur (8 Valf)
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (10, 'Vana 1', '2', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (11, 'Vana 2', '3', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (12, 'Vana 3', '4', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (13, 'Vana 4', '5', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (14, 'Vana 5', '6', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (15, 'Vana 6', '8', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (16, 'Vana 7', '9', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
+VALUES (17, 'Vana 8', '10', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+
+-- Varsayılan bir adet reçete tohumla
+INSERT OR IGNORE INTO recipes (id, name, description, targetCount, fillTimeMs, volumeMl, settlingTimeMs, dripWaitTimeMs, valveDurations)
+VALUES ('default_recipe', 'Standart 8li Reçete', 'Tüm valflerin 3 saniye açık kalacağı standart 8 şişelik dolum reçetesi.', 8, 3000, 250, 150, 150, '{"10":3000,"11":3000,"12":3000,"13":3000,"14":3000,"15":3000,"16":3000,"17":3000}');
 

@@ -155,6 +155,16 @@ def get_full_state_sync():
     for s in sensors_rows:
         sd = dict(s)
         sd["enabled"] = bool(sd.get("enabled", True))
+        
+        # Convert DB device schema (either 'RASPI' or Nano ID like 'GatesNano') to UI schema
+        db_device = sd.get("device", "RASPI")
+        if db_device == "RASPI":
+            sd["device"] = "RASPI"
+            sd["connectionId"] = ""
+        else:
+            sd["device"] = "NANO"
+            sd["connectionId"] = db_device
+            
         sensors.append(sd)
 
     # 7. gates
@@ -519,9 +529,21 @@ async def handle_action(sid, data):
     elif action_type == 'UPDATE_SENSOR':
         sid_val = payload.get('id')
         updates = payload.get('updates', {})
-        for k, v in updates.items():
+        
+        # Convert UI device/connectionId updates back to DB's device field
+        if "device" in updates or "connectionId" in updates:
+            current = db.fetchone("SELECT * FROM sensors WHERE id = ?", (sid_val,))
+            if current:
+                new_device_type = updates.get("device", "NANO" if current.get("device") != "RASPI" else "RASPI")
+                new_conn_id = updates.get("connectionId", current.get("device") if current.get("device") != "RASPI" else "")
+                
+                updates["device"] = "RASPI" if new_device_type == "RASPI" else new_conn_id
+                updates.pop("connectionId", None)
+
+        for k, v in list(updates.items()):
             db.execute(f"UPDATE sensors SET {k} = ? WHERE id = ?", (v, sid_val))
         add_log(f"Sayaç Sensörü {sid_val} ayarları güncellendi.")
+        reload_hardware_config()
 
     elif action_type == 'UPDATE_GATE':
         gid = payload.get('id')
@@ -544,9 +566,15 @@ async def handle_action(sid, data):
 
     elif action_type == 'ADD_SENSOR':
         s = payload.get('sensor', {})
+        
+        # Map UI sensor device to DB device schema
+        ui_dev = s.get('device', 'RASPI')
+        db_device = 'RASPI' if ui_dev == 'RASPI' else s.get('connectionId', '')
+        
         db.execute("INSERT OR REPLACE INTO sensors (id, name, type, pin, enabled, device, debounceMs, resistorType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                   (s.get('id'), s.get('name'), s.get('type'), s.get('pin'), 1 if s.get('enabled', True) else 0, s.get('device', 'RASPI'), s.get('debounceMs', 50), s.get('resistorType', 'NONE')))
+                   (s.get('id'), s.get('name'), s.get('type'), s.get('pin'), 1 if s.get('enabled', True) else 0, db_device, s.get('debounceMs', 50), s.get('resistorType', 'NONE')))
         add_log(f"Yeni sensör eklendi: {s.get('name')} (Pin {s.get('pin')})")
+        reload_hardware_config()
 
     elif action_type == 'REMOVE_SENSOR':
         sid_val = payload.get('id')
