@@ -35,6 +35,9 @@ unsigned long lastReconnectAttempt = 0;
 bool serverFound = false;
 bool ethernetHardwarePresent = false; // Automatically set depending on hardware check
 
+// --- Relay Polarity Config ---
+const bool ACTIVE_LOW_RELAYS = true; // Set to true for Active Low relay boards (LOW=ON, HIGH=OFF), false for Active High
+
 // --- Valve Pin Mappings ---
 const int VALVE_MIN_PIN = 2; // D2
 const int VALVE_MAX_PIN = 13; // D13
@@ -58,10 +61,10 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Setup Valve Pins (D2 to D13) as Outputs
+  // Setup Valve Pins (D2 to D13) as Outputs and initialize to de-energized state
   for (int pin = VALVE_MIN_PIN; pin <= VALVE_MAX_PIN; pin++) {
     pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW); // Start with all valves closed (OFF)
+    digitalWrite(pin, ACTIVE_LOW_RELAYS ? HIGH : LOW); // Start with all valves closed (OFF)
   }
 
   // Boot Broadcast over Serial
@@ -276,7 +279,7 @@ void processCommand(const String &cmd) {
 
     // Verify the pin is in the valid valve range
     if (pin >= VALVE_MIN_PIN && pin <= VALVE_MAX_PIN) {
-      digitalWrite(pin, state ? HIGH : LOW);
+      digitalWrite(pin, state ? (ACTIVE_LOW_RELAYS ? LOW : HIGH) : (ACTIVE_LOW_RELAYS ? HIGH : LOW));
       sendResponse("STATUS:VALVE:" + String(pin) + ":" + (state ? "ON" : "OFF"));
     }
   }
@@ -289,6 +292,6 @@ void processCommand(const String &cmd) {
 
 void allValvesOff() {
   for (int pin = VALVE_MIN_PIN; pin <= VALVE_MAX_PIN; pin++) {
-    digitalWrite(pin, LOW);
+    digitalWrite(pin, ACTIVE_LOW_RELAYS ? HIGH : LOW);
   }
 }

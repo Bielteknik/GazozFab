@@ -90,9 +90,9 @@ def init_db():
                         conn.execute(stmt_strip)
                     except Exception as ex:
                         pass
-            # Ensure all default valves are set to Active Low (relayInversion = 1)
+            # Ensure NANO valves have relayInversion = 0 (since ValvesNano handles polarity natively)
             try:
-                conn.execute("UPDATE valves SET relayInversion = 1")
+                conn.execute("UPDATE valves SET relayInversion = 0 WHERE device = 'NANO'")
                 # Auto-migrate ValvesNano port from serial/UART to ttyUSB1
                 cursor = conn.cursor()
                 cursor.execute("SELECT port FROM nanos WHERE id = 'ValvesNano'")
