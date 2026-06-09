@@ -603,6 +603,20 @@ class HardwareManager:
 
     def control_valve(self, valve_id, pin, state, device="NANO"):
         """Toggles valve on ValvesNano or Raspberry Pi GPIO."""
+        # Check relay inversion from database
+        relay_inversion = 0
+        if hasattr(self, 'db') and self.db and valve_id:
+            try:
+                row = self.db.fetchone("SELECT relayInversion FROM valves WHERE id = ?", (valve_id,))
+                if row:
+                    relay_inversion = int(row.get("relayInversion", 0))
+            except Exception as e:
+                pass
+
+        # If inverted (Active Low relay), swap the target state
+        if relay_inversion:
+            state = not state
+
         if device == "RASPI":
             # Direct Pi 5 GPIO output control
             try:
