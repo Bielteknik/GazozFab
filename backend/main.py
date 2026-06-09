@@ -93,8 +93,15 @@ def init_db():
             # Ensure all default valves are set to Active Low (relayInversion = 1)
             try:
                 conn.execute("UPDATE valves SET relayInversion = 1")
-            except:
-                pass
+                # Auto-migrate ValvesNano port from serial/UART to ttyUSB1
+                cursor = conn.cursor()
+                cursor.execute("SELECT port FROM nanos WHERE id = 'ValvesNano'")
+                row = cursor.fetchone()
+                if row and any(x in str(row[0]).lower() for x in ['serial0', 'ttyama0', 'ttys0']):
+                    conn.execute("UPDATE nanos SET port = '/dev/ttyUSB1' WHERE id = 'ValvesNano'")
+                    print(f"[DB Migration] Auto-migrated ValvesNano port from {row[0]} to /dev/ttyUSB1")
+            except Exception as e:
+                print(f"[DB Migration Error] {e}")
             conn.commit()
             conn.close()
             print("[DB] Schema check completed.")

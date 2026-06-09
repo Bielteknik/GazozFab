@@ -176,7 +176,7 @@ INSERT OR IGNORE INTO system_state (id) VALUES (1);
 
 -- Donanım modüllerini tohumla (Nanos)
 INSERT OR IGNORE INTO nanos (id, name, port, baudRate, status) VALUES ('GatesNano', 'GatesNano', '/dev/ttyUSB0', 115200, 'OFFLINE');
-INSERT OR IGNORE INTO nanos (id, name, port, baudRate, status) VALUES ('ValvesNano', 'ValvesNano', '/dev/serial0', 115200, 'OFFLINE');
+INSERT OR IGNORE INTO nanos (id, name, port, baudRate, status) VALUES ('ValvesNano', 'ValvesNano', '/dev/ttyUSB1', 115200, 'OFFLINE');
 
 -- Varsayılan kapıları/kilitleri oluştur
 INSERT OR IGNORE INTO gates (
