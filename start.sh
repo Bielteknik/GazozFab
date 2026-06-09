@@ -23,11 +23,8 @@ fi
 if [ ! -d "backend/pzoz_venv" ]; then
     echo -e "${YELLOW}[Python] Sanal ortam (pzoz_venv) bulunamadı. Oluşturuluyor...${NC}"
     python3 -m venv backend/pzoz_venv
-    source backend/pzoz_venv/bin/activate
     echo -e "${YELLOW}[Python] Kütüphaneler yükleniyor...${NC}"
-    pip install -r backend/requirements.txt
-else
-    source backend/pzoz_venv/bin/activate
+    backend/pzoz_venv/bin/pip install -r backend/requirements.txt
 fi
 
 # 3. Port 8000 ve 3000'i kontrol et ve eğer meşgulse temizle
