@@ -795,22 +795,18 @@ async def serial_polling_loop():
                             last_reconnect_attempts[port] = now
                             hw.connect_to_port(port, n["baudRate"])
             
-            # 2. Auto-discovery for newly plugged-in ports (Disabled to keep system static)
-            # if now - last_port_scan_time > 10.0:
-            #     last_port_scan_time = now
-            #     available_ports = hw.get_available_ports()
-            #     configured_ports = [hw.resolve_port_path(n["port"]) for n in nanos if n["port"]]
-            #     
-            #     for port in available_ports:
-            #         resolved_p = hw.resolve_port_path(port)
-            #         # If this port is not configured in DB AND not connected in memory
-            #         if resolved_p not in configured_ports and resolved_p not in hw.serial_conns:
-            #             print(f"[Auto Discovery] Found unregistered active serial port: {resolved_p}. Scanning...")
-            #             # Try connecting with 115200 first, then 9600
-            #             connected = hw.connect_to_port(port, baudrate=115200, verbose=False)
-            #             if not connected:
-            #                 hw.connect_to_port(port, baudrate=9600, verbose=False)
-            pass
+            # 2. Auto-discovery for newly plugged-in or swapped ports
+            if now - last_port_scan_time > 10.0:
+                last_port_scan_time = now
+                available_ports = hw.get_available_ports()
+                
+                for port in available_ports:
+                    resolved_p = hw.resolve_port_path(port)
+                    # If this port is not currently connected in memory, scan it to discover its identity
+                    if resolved_p not in hw.serial_conns:
+                        connected = hw.connect_to_port(port, baudrate=115200, verbose=False)
+                        if not connected:
+                            hw.connect_to_port(port, baudrate=9600, verbose=False)
         except Exception as e:
             pass
         await asyncio.sleep(0.1) # Fast poll to keep serial responsive
