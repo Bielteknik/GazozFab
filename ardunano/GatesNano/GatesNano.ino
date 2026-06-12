@@ -38,7 +38,7 @@ unsigned long lastDebounceTimeLimitY = 0;
 
 // --- Fonksiyon Tanımlamaları ---
 void setupPins();
-void motorStep(int stepPin, int dirPin, bool yon, long adim);
+void motorStep(int stepPin, int dirPin, int enPin, bool yon, long adim);
 void durumGoster();
 void menuGoster();
 String getPart(String data, char separator, int index);
@@ -204,10 +204,9 @@ String getPart(String data, char separator, int index) {
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-// Motor Adım Atma Fonksiyonu
-void motorStep(int stepPin, int dirPin, bool yon, long adim) {
-  digitalWrite(ENABLE_PIN, LOW); // Sürücüyü aktif et
-  delay(1);                      // Aktifleşme süresi bekle
+void motorStep(int stepPin, int dirPin, int enPin, bool yon, long adim) {
+  digitalWrite(enPin, LOW); // Sürücüyü aktif et
+  delay(1);                 // Aktifleşme süresi bekle
 
   digitalWrite(dirPin, yon);
 
@@ -219,8 +218,8 @@ void motorStep(int stepPin, int dirPin, bool yon, long adim) {
     delayMicroseconds(stepDelay);
   }
   
-  delay(50);                      // Son adımın yerine oturması için bekle
-  digitalWrite(ENABLE_PIN, HIGH); // Akımı keserek cızırtıyı ve ısınmayı önle
+  delay(50);                // Son adımın yerine oturması için bekle
+  digitalWrite(enPin, HIGH); // Akımı keserek cızırtıyı ve ısınmayı önle
 }
 
 // Dinamik Konfigürasyon Çözümleme
@@ -293,7 +292,7 @@ void processCommand(String cmd) {
     stepDelay = targetSpeed;
     
     // Motoru sür
-    motorStep(targetStepPin, targetDirPin, direction, targetSteps);
+    motorStep(targetStepPin, targetDirPin, targetEnPin, direction, targetSteps);
     
     // Sürücüyü devre dışı bırak (ısınmayı önleme)
     digitalWrite(targetEnPin, HIGH);
@@ -324,25 +323,25 @@ void processCommand(String cmd) {
   }
 
   else if (cmd == "x+") {
-    motorStep(X_STEP, X_DIR, HIGH, stepsX);
+    motorStep(X_STEP, X_DIR, ENABLE_PIN, HIGH, stepsX);
     digitalWrite(ENABLE_PIN, HIGH);
     Serial.print("X ileri "); Serial.print(stepsX); Serial.println(" adim");
   }
-
+ 
   else if (cmd == "x-") {
-    motorStep(X_STEP, X_DIR, LOW, stepsX);
+    motorStep(X_STEP, X_DIR, ENABLE_PIN, LOW, stepsX);
     digitalWrite(ENABLE_PIN, HIGH);
     Serial.print("X geri "); Serial.print(stepsX); Serial.println(" adim");
   }
-
+ 
   else if (cmd == "y+") {
-    motorStep(Y_STEP, Y_DIR, HIGH, stepsY);
+    motorStep(Y_STEP, Y_DIR, ENABLE_PIN, HIGH, stepsY);
     digitalWrite(ENABLE_PIN, HIGH);
     Serial.print("Y ileri "); Serial.print(stepsY); Serial.println(" adim");
   }
-
+ 
   else if (cmd == "y-") {
-    motorStep(Y_STEP, Y_DIR, LOW, stepsY);
+    motorStep(Y_STEP, Y_DIR, ENABLE_PIN, LOW, stepsY);
     digitalWrite(ENABLE_PIN, HIGH);
     Serial.print("Y geri "); Serial.print(stepsY); Serial.println(" adim");
   }
