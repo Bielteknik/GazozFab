@@ -15,6 +15,7 @@ class HardwareManager:
         self.on_nano_discovered = None # callback(nano_id, name, port, baudrate)
         self.on_nano_disconnected = None # callback(nano_id)
         self.on_terminal_output = None # callback(device_id, data)
+        self.on_limit_switch_event = None # callback(gate_id, is_open)
         self.sensor_config = []
         self.configured_nanos = []
         self.polling_active = False
@@ -119,6 +120,18 @@ class HardwareManager:
                     self.on_distance_read(dist_cm)
             except Exception:
                 pass
+
+        # 3. Check Limit Switch events
+        # Format: EVENT:LIMIT:IN:OPEN or EVENT:LIMIT:IN:CLOSED
+        elif "EVENT:LIMIT:" in clean_line:
+            parts = clean_line.split(":")
+            if len(parts) >= 4:
+                gate_type = parts[2].strip()  # 'IN' or 'OUT'
+                gate_state = parts[3].strip()  # 'OPEN' or 'CLOSED'
+                gate_id = "inputGate" if gate_type == "IN" else "outputGate"
+                is_open = (gate_state == "OPEN")
+                if self.on_limit_switch_event:
+                    self.on_limit_switch_event(gate_id, is_open)
 
     async def start_udp_discovery_server(self, host="0.0.0.0", port=1978):
         loop = asyncio.get_running_loop()

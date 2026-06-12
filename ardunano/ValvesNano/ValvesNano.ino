@@ -21,25 +21,30 @@ const String NANO_ID = "ValvesNano";
 const String NANO_NAME = "ValvesNano";
 
 // --- Feature Toggle ---
-const bool USE_ETHERNET = false; // Set to true if an Ethernet Shield is attached
+const bool USE_ETHERNET =
+    false; // Set to true if an Ethernet Shield is attached
 
 // --- Network Configuration ---
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x02};
 IPAddress ip(192, 168, 1, 16); // Fallback static IP if DHCP fails
-IPAddress serverIP(192, 168, 1, 5);      // Dynamically updated, fallback is 192.168.1.5
+IPAddress serverIP(192, 168, 1,
+                   5);      // Dynamically updated, fallback is 192.168.1.5
 const uint16_t port = 1978; // TCP and UDP Port
 
 EthernetClient client;
 bool ethernetConnected = false;
 unsigned long lastReconnectAttempt = 0;
 bool serverFound = false;
-bool ethernetHardwarePresent = false; // Automatically set depending on hardware check
+bool ethernetHardwarePresent =
+    false; // Automatically set depending on hardware check
 
 // --- Relay Polarity Config ---
-const bool ACTIVE_LOW_RELAYS = true; // Set to true for Active Low relay boards (LOW=ON, HIGH=OFF), false for Active High
+const bool ACTIVE_LOW_RELAYS =
+    true; // Set to true for Active Low relay boards (LOW=ON, HIGH=OFF), false
+          // for Active High
 
 // --- Valve Pin Mappings ---
-const int VALVE_MIN_PIN = 2; // D2
+const int VALVE_MIN_PIN = 2;  // D2
 const int VALVE_MAX_PIN = 13; // D13
 
 // --- Non-blocking Buffers ---
@@ -61,10 +66,13 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Setup Valve Pins (D2 to D13) as Outputs and initialize to de-energized state
+  // Setup Valve Pins (D2 to D13) as Outputs and initialize to de-energized
+  // state
   for (int pin = VALVE_MIN_PIN; pin <= VALVE_MAX_PIN; pin++) {
     pinMode(pin, OUTPUT);
-    digitalWrite(pin, ACTIVE_LOW_RELAYS ? HIGH : LOW); // Start with all valves closed (OFF)
+    digitalWrite(pin, ACTIVE_LOW_RELAYS
+                          ? HIGH
+                          : LOW); // Start with all valves closed (OFF)
   }
 
   // Boot Broadcast over Serial
@@ -94,7 +102,8 @@ void setup() {
     }
 
     if (!ethernetHardwarePresent) {
-      Serial.println(F("[Ethernet] No functioning Ethernet hardware detected. Running in Serial-only mode."));
+      Serial.println(F("[Ethernet] No functioning Ethernet hardware detected. "
+                       "Running in Serial-only mode."));
     } else {
       Serial.print(F("[Ethernet] IP Address: "));
       Serial.println(Ethernet.localIP());
@@ -104,7 +113,8 @@ void setup() {
     }
   } else {
     ethernetHardwarePresent = false;
-    Serial.println(F("[System] Running in Serial-only mode (Ethernet disabled by config)."));
+    Serial.println(F(
+        "[System] Running in Serial-only mode (Ethernet disabled by config)."));
   }
 }
 
@@ -132,7 +142,8 @@ void readSerialNonBlocking() {
       }
       serialBuffer = ""; // Reset buffer
     } else if (c >= 32 && c <= 126) {
-      serialBuffer += c; // Accept only printable ASCII characters to filter noise
+      serialBuffer +=
+          c; // Accept only printable ASCII characters to filter noise
     }
   }
 }
@@ -161,9 +172,9 @@ String getPart(String data, char separator, int index) {
 
   for (int i = 0; i <= maxIndex && found <= index; i++) {
     if (data.charAt(i) == separator || i == maxIndex) {
-        found++;
-        strIndex[0] = strIndex[1] + 1;
-        strIndex[1] = (i == maxIndex) ? i + 1 : i;
+      found++;
+      strIndex[0] = strIndex[1] + 1;
+      strIndex[1] = (i == maxIndex) ? i + 1 : i;
     }
   }
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
@@ -180,7 +191,8 @@ void sendResponse(const String &msg) {
 bool discoverServerIP() {
   if (!ethernetHardwarePresent)
     return false;
-  Serial.println(F("[Discovery] Starting server discovery via UDP Broadcast..."));
+  Serial.println(
+      F("[Discovery] Starting server discovery via UDP Broadcast..."));
 
   EthernetUDP udp;
   if (udp.begin(port) == 0) {
@@ -279,8 +291,10 @@ void processCommand(const String &cmd) {
 
     // Verify the pin is in the valid valve range
     if (pin >= VALVE_MIN_PIN && pin <= VALVE_MAX_PIN) {
-      digitalWrite(pin, state ? (ACTIVE_LOW_RELAYS ? LOW : HIGH) : (ACTIVE_LOW_RELAYS ? HIGH : LOW));
-      sendResponse("STATUS:VALVE:" + String(pin) + ":" + (state ? "ON" : "OFF"));
+      digitalWrite(pin, state ? (ACTIVE_LOW_RELAYS ? LOW : HIGH)
+                              : (ACTIVE_LOW_RELAYS ? HIGH : LOW));
+      sendResponse("STATUS:VALVE:" + String(pin) + ":" +
+                   (state ? "ON" : "OFF"));
     }
   }
   // Handle emergency close all valves

@@ -336,6 +336,10 @@ def handle_nano_discovery(nano_id, name, port, baudrate):
             print(f"[Hardware Config] Sent dynamic configuration to {nano_id} on {target_port}: {config_cmd}")
             add_log(f"{nano_id} için dinamik yapılandırma gönderildi: {config_cmd}")
             
+            # Query initial gate limit states on discovery
+            hw.send_command("GET_LIMITS", target_port=target_port)
+            print(f"[Hardware Config] Queried initial limit switch states from {nano_id}")
+            
         broadcast_callback()
     except Exception as e:
         print(f"[DB Discovery Error] {e}")
@@ -367,11 +371,22 @@ def handle_distance_read(distance_cm):
     db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (int(distance_cm),))
     broadcast_callback()
 
+# Limit switch event callback from GatesNano (D9, D10)
+def handle_limit_switch_event(gate_id, is_open):
+    # Retrieve stepsToOpen to set position correctly
+    gate_row = db.fetchone("SELECT stepsToOpen FROM gates WHERE id = ?", (gate_id,))
+    steps_to_open = gate_row["stepsToOpen"] if (gate_row and gate_row["stepsToOpen"]) else 400
+    pos_val = steps_to_open if is_open else 0
+    db.execute("UPDATE gates SET isOpen = ?, position = ? WHERE id = ?", (1 if is_open else 0, pos_val, gate_id))
+    add_log(f"Kilit Sınır Anahtarı ({'Giriş Kapısı' if gate_id == 'inputGate' else 'Çıkış Kapısı'}): {'AÇIK' if is_open else 'KAPALI'}")
+    broadcast_callback()
+
 def handle_terminal_output(device_id, data):
     asyncio.create_task(sio.emit('TERMINAL_OUTPUT', {'nanoId': device_id, 'data': data}))
 
 hw.on_sensor_event = handle_sensor_event
 hw.on_distance_read = handle_distance_read
+hw.on_limit_switch_event = handle_limit_switch_event
 hw.on_nano_discovered = handle_nano_discovery
 hw.on_nano_disconnected = handle_nano_disconnect
 hw.on_terminal_output = handle_terminal_output
@@ -717,6 +732,17 @@ async def handle_action(sid, data):
     elif action_type == 'START_OPERATOR_FILL':
         asyncio.create_task(prod._trigger_filling_valves())
         add_log("Operatör manuel dolum sırası tetiklendi.")
+        
+    elif action_type == 'RESET_GATES':
+        target_port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == "GatesNano"), None)
+        if not target_port and "GatesNano" in hw.network_conns:
+            target_port = "GatesNano"
+            
+        if target_port:
+            hw.send_command("GET_LIMITS", target_port=target_port)
+            add_log("Kilit sınır anahtarı durumları sorgulandı (Sıfırlandı).")
+        else:
+            add_log("Hata: GatesNano bağlı değil, kilit sınır anahtarları sorgulanamadı.")
         
     else:
         print(f"[Socket] Unknown action: {action_type}")

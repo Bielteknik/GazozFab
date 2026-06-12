@@ -18,11 +18,13 @@ interface ManualControlProps {
   onUpdateSensor: (id: string, updates: Partial<SensorState>) => void;
   sendNanoCommand: (nanoId: string, cmd: string) => void;
   onUpdateConfig?: (config: Partial<SystemConfig>) => void;
+  onResetGates?: () => void;
 }
 
 export const ManualControl: React.FC<ManualControlProps> = ({ 
   data, setMode, operateGate, toggleValve, testValvePulse,
-  onUpdateRecipe, onUpdateSystemGate, onUpdateSensor, sendNanoCommand, onUpdateConfig
+  onUpdateRecipe, onUpdateSystemGate, onUpdateSensor, sendNanoCommand, onUpdateConfig,
+  onResetGates
 }) => {
   
   const [password, setPassword] = useState('');
@@ -284,6 +286,12 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                          >
                            ÇIKIŞ KAPISI {data.outputGate.isOpen ? <Unlock size={12}/> : <Lock size={12}/>}
                          </button>
+                         <button
+                            onClick={() => onResetGates?.()}
+                            className="w-full flex items-center justify-between p-3 rounded border text-[10px] font-bold transition-all active:scale-95 bg-orange-600/10 border-orange-500/30 text-orange-500 hover:bg-orange-600/20"
+                          >
+                            LİMİTLERİ OKU / SIFIRLA <RefreshCw size={12} />
+                          </button>
                       </div>
                    </div>
 

@@ -12,6 +12,10 @@ int stepDelay = 1000; // mikro saniye
 long stepsX = 600;
 long stepsY = 600;
 
+// Limit Switch Tanımları
+int LIMIT_X = 9;   // Giriş Kapısı Limit Switch (D9)
+int LIMIT_Y = 10;  // Çıkış Kapısı Limit Switch (D10)
+
 // Non-blocking Seri Port Okuma Değişkenleri
 String inputBuffer = "";
 
@@ -23,6 +27,14 @@ int lastReadingY = HIGH;
 unsigned long lastDebounceTimeX = 0;
 unsigned long lastDebounceTimeY = 0;
 unsigned long debounceDelay = 50; // milisaniye
+
+// Limit Switch Durum Takip Değişkenleri
+int limitXState = HIGH;     // HIGH = unpressed (CLOSED), LOW = pressed (OPEN)
+int limitYState = HIGH;
+int lastReadingLimitX = HIGH;
+int lastReadingLimitY = HIGH;
+unsigned long lastDebounceTimeLimitX = 0;
+unsigned long lastDebounceTimeLimitY = 0;
 
 // --- Fonksiyon Tanımlamaları ---
 void setupPins();
@@ -44,6 +56,9 @@ void setupPins() {
   pinMode(SENSOR_X, INPUT_PULLUP);
   pinMode(SENSOR_Y, INPUT_PULLUP);
   
+  pinMode(LIMIT_X, INPUT_PULLUP);
+  pinMode(LIMIT_Y, INPUT_PULLUP);
+  
   digitalWrite(ENABLE_PIN, HIGH); // Sessiz başla / sürücüyü devre dışı bırak (ısınmayı önleme)
 }
 
@@ -57,6 +72,11 @@ void setup() {
   sensYState = digitalRead(SENSOR_Y);
   lastReadingX = sensXState;
   lastReadingY = sensYState;
+
+  limitXState = digitalRead(LIMIT_X);
+  limitYState = digitalRead(LIMIT_Y);
+  lastReadingLimitX = limitXState;
+  lastReadingLimitY = limitYState;
 
   delay(500);
 
@@ -114,7 +134,41 @@ void loop() {
   }
   lastReadingY = readingY;
 
-  // 3. Seri Porttan Gelen Komutları Oku (Non-blocking / Kesintisiz)
+  // 3. Giriş Limit Switch (D9) Debounce Takibi
+  int readingLimitX = digitalRead(LIMIT_X);
+  if (readingLimitX != lastReadingLimitX) {
+    lastDebounceTimeLimitX = millis();
+  }
+  if ((millis() - lastDebounceTimeLimitX) > debounceDelay) {
+    if (readingLimitX != limitXState) {
+      limitXState = readingLimitX;
+      if (limitXState == LOW) {
+        Serial.println("EVENT:LIMIT:IN:OPEN");
+      } else {
+        Serial.println("EVENT:LIMIT:IN:CLOSED");
+      }
+    }
+  }
+  lastReadingLimitX = readingLimitX;
+
+  // 4. Çıkış Limit Switch (D10) Debounce Takibi
+  int readingLimitY = digitalRead(LIMIT_Y);
+  if (readingLimitY != lastReadingLimitY) {
+    lastDebounceTimeLimitY = millis();
+  }
+  if ((millis() - lastDebounceTimeLimitY) > debounceDelay) {
+    if (readingLimitY != limitYState) {
+      limitYState = readingLimitY;
+      if (limitYState == LOW) {
+        Serial.println("EVENT:LIMIT:OUT:OPEN");
+      } else {
+        Serial.println("EVENT:LIMIT:OUT:CLOSED");
+      }
+    }
+  }
+  lastReadingLimitY = readingLimitY;
+
+  // 5. Seri Porttan Gelen Komutları Oku (Non-blocking / Kesintisiz)
   readSerialNonBlocking();
 }
 
@@ -337,8 +391,12 @@ void processCommand(String cmd) {
       delay(250);
     }
   }
-
-
+  else if (cmd == "GET_LIMITS") {
+    Serial.print("EVENT:LIMIT:IN:");
+    Serial.println(digitalRead(LIMIT_X) == LOW ? "OPEN" : "CLOSED");
+    Serial.print("EVENT:LIMIT:OUT:");
+    Serial.println(digitalRead(LIMIT_Y) == LOW ? "OPEN" : "CLOSED");
+  }
 }
 
 void durumGoster() {
@@ -354,6 +412,12 @@ void durumGoster() {
     Serial.println("ALGILADI");
   else
     Serial.println("BOS");
+
+  Serial.print("Giris Kapisi Limit (Pin "); Serial.print(LIMIT_X); Serial.print(") : ");
+  Serial.println(digitalRead(LIMIT_X) == LOW ? "ACIK (OPEN)" : "KAPALI (CLOSED)");
+
+  Serial.print("Cikis Kapisi Limit (Pin "); Serial.print(LIMIT_Y); Serial.print(") : ");
+  Serial.println(digitalRead(LIMIT_Y) == LOW ? "ACIK (OPEN)" : "KAPALI (CLOSED)");
 
   Serial.print("Motorlar : ");
   if (digitalRead(ENABLE_PIN) == LOW)

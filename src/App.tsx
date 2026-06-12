@@ -58,6 +58,7 @@ export default function App() {
     startFlush,
     stopFlush,
     startOperatorFill,
+    resetGates,
     systemReset,
     manualLogin,
     manualLogout,
@@ -116,6 +117,7 @@ export default function App() {
              testValvePulse={testValvePulse}
              sendNanoCommand={sendNanoCommand}
              onUpdateConfig={updateConfig}
+             onResetGates={resetGates}
           />
         )}
         {currentTab === 'history' && (
