@@ -5,40 +5,28 @@ int X_DIR = 2;
 int Y_STEP = 6;
 int Y_DIR = 3;
 int ENABLE_PIN = 8;
-int SENSOR_X = 4;   // Giriş Lazer Sensörü (D4)
-int SENSOR_Y = 7;   // Çıkış Lazer Sensörü (D7)
+int SENSOR_X = 4; // Giriş Lazer Sensörü (D4)
+int SENSOR_Y = 7; // Çıkış Lazer Sensörü (D7)
 
 int stepDelay = 1000; // mikro saniye
 long stepsX = 600;
 long stepsY = 600;
 
-// Limit Switch Tanımları
-int LIMIT_X = 9;   // Giriş Kapısı Limit Switch (D9)
-int LIMIT_Y = 10;  // Çıkış Kapısı Limit Switch (D10)
-
 // Non-blocking Seri Port Okuma Değişkenleri
 String inputBuffer = "";
 
 // Lazer Sensör Durum Takip Değişkenleri (Doğru Debounce ve Değişim Algılama)
-int sensXState = HIGH;      // Mevcut kararlı durum
+int sensXState = HIGH; // Mevcut kararlı durum
 int sensYState = HIGH;
-int lastReadingX = HIGH;    // Son okunan anlık değer
+int lastReadingX = HIGH; // Son okunan anlık değer
 int lastReadingY = HIGH;
 unsigned long lastDebounceTimeX = 0;
 unsigned long lastDebounceTimeY = 0;
 unsigned long debounceDelay = 50; // milisaniye
 
-// Limit Switch Durum Takip Değişkenleri
-int limitXState = HIGH;     // HIGH = unpressed (CLOSED), LOW = pressed (OPEN)
-int limitYState = HIGH;
-int lastReadingLimitX = HIGH;
-int lastReadingLimitY = HIGH;
-unsigned long lastDebounceTimeLimitX = 0;
-unsigned long lastDebounceTimeLimitY = 0;
-
 // --- Fonksiyon Tanımlamaları ---
 void setupPins();
-void motorStep(int stepPin, int dirPin, int enPin, bool yon, long adim);
+void motorStep(int stepPin, int dirPin, bool yon, long adim);
 void durumGoster();
 void menuGoster();
 String getPart(String data, char separator, int index);
@@ -52,19 +40,18 @@ void setupPins() {
   pinMode(Y_STEP, OUTPUT);
   pinMode(Y_DIR, OUTPUT);
   pinMode(ENABLE_PIN, OUTPUT);
-  
+
   pinMode(SENSOR_X, INPUT_PULLUP);
   pinMode(SENSOR_Y, INPUT_PULLUP);
-  
-  pinMode(LIMIT_X, INPUT_PULLUP);
-  pinMode(LIMIT_Y, INPUT_PULLUP);
-  
-  digitalWrite(ENABLE_PIN, HIGH); // Sessiz başla / sürücüyü devre dışı bırak (ısınmayı önleme)
+
+  digitalWrite(
+      ENABLE_PIN,
+      HIGH); // Sessiz başla / sürücüyü devre dışı bırak (ısınmayı önleme)
 }
 
 void setup() {
   Serial.begin(115200);
-  
+
   setupPins();
 
   // İlk durumları güncelle
@@ -72,11 +59,6 @@ void setup() {
   sensYState = digitalRead(SENSOR_Y);
   lastReadingX = sensXState;
   lastReadingY = sensYState;
-
-  limitXState = digitalRead(LIMIT_X);
-  limitYState = digitalRead(LIMIT_Y);
-  lastReadingLimitX = limitXState;
-  lastReadingLimitY = limitYState;
 
   delay(500);
 
@@ -87,7 +69,7 @@ void setup() {
 
   // Kimlik Yayını (Pi5 keşfi için)
   Serial.println("ID:GatesNano;NAME:GatesNano");
-  
+
   menuGoster();
 }
 
@@ -134,41 +116,7 @@ void loop() {
   }
   lastReadingY = readingY;
 
-  // 3. Giriş Limit Switch (D9) Debounce Takibi
-  int readingLimitX = digitalRead(LIMIT_X);
-  if (readingLimitX != lastReadingLimitX) {
-    lastDebounceTimeLimitX = millis();
-  }
-  if ((millis() - lastDebounceTimeLimitX) > debounceDelay) {
-    if (readingLimitX != limitXState) {
-      limitXState = readingLimitX;
-      if (limitXState == LOW) {
-        Serial.println("EVENT:LIMIT:IN:OPEN");
-      } else {
-        Serial.println("EVENT:LIMIT:IN:CLOSED");
-      }
-    }
-  }
-  lastReadingLimitX = readingLimitX;
-
-  // 4. Çıkış Limit Switch (D10) Debounce Takibi
-  int readingLimitY = digitalRead(LIMIT_Y);
-  if (readingLimitY != lastReadingLimitY) {
-    lastDebounceTimeLimitY = millis();
-  }
-  if ((millis() - lastDebounceTimeLimitY) > debounceDelay) {
-    if (readingLimitY != limitYState) {
-      limitYState = readingLimitY;
-      if (limitYState == LOW) {
-        Serial.println("EVENT:LIMIT:OUT:OPEN");
-      } else {
-        Serial.println("EVENT:LIMIT:OUT:CLOSED");
-      }
-    }
-  }
-  lastReadingLimitY = readingLimitY;
-
-  // 5. Seri Porttan Gelen Komutları Oku (Non-blocking / Kesintisiz)
+  // 3. Seri Porttan Gelen Komutları Oku (Non-blocking / Kesintisiz)
   readSerialNonBlocking();
 }
 
@@ -183,7 +131,8 @@ void readSerialNonBlocking() {
       }
       inputBuffer = ""; // Tamponu temizle
     } else if (c >= 32 && c <= 126) {
-      inputBuffer += c; // Sadece standart okunabilir karakterleri tampona ekle (gürültüyü filtrele)
+      inputBuffer += c; // Sadece standart okunabilir karakterleri tampona ekle
+                        // (gürültüyü filtrele)
     }
   }
 }
@@ -196,17 +145,18 @@ String getPart(String data, char separator, int index) {
 
   for (int i = 0; i <= maxIndex && found <= index; i++) {
     if (data.charAt(i) == separator || i == maxIndex) {
-        found++;
-        strIndex[0] = strIndex[1] + 1;
-        strIndex[1] = (i == maxIndex) ? i + 1 : i;
+      found++;
+      strIndex[0] = strIndex[1] + 1;
+      strIndex[1] = (i == maxIndex) ? i + 1 : i;
     }
   }
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-void motorStep(int stepPin, int dirPin, int enPin, bool yon, long adim) {
-  digitalWrite(enPin, LOW); // Sürücüyü aktif et
-  delay(1);                 // Aktifleşme süresi bekle
+// Motor Adım Atma Fonksiyonu
+void motorStep(int stepPin, int dirPin, bool yon, long adim) {
+  digitalWrite(ENABLE_PIN, LOW); // Sürücüyü aktif et
+  delay(1);                      // Aktifleşme süresi bekle
 
   digitalWrite(dirPin, yon);
 
@@ -217,18 +167,20 @@ void motorStep(int stepPin, int dirPin, int enPin, bool yon, long adim) {
     digitalWrite(stepPin, LOW);
     delayMicroseconds(stepDelay);
   }
-  
-  delay(50);                // Son adımın yerine oturması için bekle
-  digitalWrite(enPin, HIGH); // Akımı keserek cızırtıyı ve ısınmayı önle
+
+  delay(50);                      // Son adımın yerine oturması için bekle
+  digitalWrite(ENABLE_PIN, HIGH); // Akımı keserek cızırtıyı ve ısınmayı önle
 }
 
 // Dinamik Konfigürasyon Çözümleme
 void parseConfig(String payload) {
-  // format: STEP1=5:DIR1=2:STEP2=6:DIR2=3:EN=8:SENS_IN=4:SENS_OUT=7:SPEED1=1000:SPEED2=1000:STEPS1=400:STEPS2=400
+  // format:
+  // STEP1=5:DIR1=2:STEP2=6:DIR2=3:EN=8:SENS_IN=4:SENS_OUT=7:SPEED1=1000:SPEED2=1000:STEPS1=400:STEPS2=400
   int startIdx = 0;
   while (startIdx < payload.length()) {
     int nextColon = payload.indexOf(':', startIdx);
-    if (nextColon == -1) nextColon = payload.length();
+    if (nextColon == -1)
+      nextColon = payload.length();
     String pair = payload.substring(startIdx, nextColon);
     startIdx = nextColon + 1;
 
@@ -239,26 +191,36 @@ void parseConfig(String payload) {
       key.trim();
       val.trim();
 
-      if (key == "STEP1") X_STEP = val.toInt();
-      else if (key == "DIR1") X_DIR = val.toInt();
-      else if (key == "STEP2") Y_STEP = val.toInt();
-      else if (key == "DIR2") Y_DIR = val.toInt();
-      else if (key == "EN") ENABLE_PIN = val.toInt();
-      else if (key == "SENS_IN") SENSOR_X = val.toInt();
-      else if (key == "SENS_OUT") SENSOR_Y = val.toInt();
-      else if (key == "SPEED1") stepDelay = val.toInt();
-      else if (key == "STEPS1") stepsX = val.toInt();
-      else if (key == "STEPS2") stepsY = val.toInt();
+      if (key == "STEP1")
+        X_STEP = val.toInt();
+      else if (key == "DIR1")
+        X_DIR = val.toInt();
+      else if (key == "STEP2")
+        Y_STEP = val.toInt();
+      else if (key == "DIR2")
+        Y_DIR = val.toInt();
+      else if (key == "EN")
+        ENABLE_PIN = val.toInt();
+      else if (key == "SENS_IN")
+        SENSOR_X = val.toInt();
+      else if (key == "SENS_OUT")
+        SENSOR_Y = val.toInt();
+      else if (key == "SPEED1")
+        stepDelay = val.toInt();
+      else if (key == "STEPS1")
+        stepsX = val.toInt();
+      else if (key == "STEPS2")
+        stepsY = val.toInt();
     }
   }
 
   setupPins();
-  
+
   sensXState = digitalRead(SENSOR_X);
   sensYState = digitalRead(SENSOR_Y);
   lastReadingX = sensXState;
   lastReadingY = sensYState;
-  
+
   Serial.println("CONFIG:OK");
 }
 
@@ -267,7 +229,7 @@ void processCommand(String cmd) {
   if (cmd.startsWith("CONFIG:")) {
     parseConfig(cmd.substring(7));
   }
-  
+
   else if (cmd.startsWith("GATE:")) {
     // Format: GATE:OPEN:D5:D2:D8:400:1000  veya  GATE:CLOSE:D5:D2:D8:400:1000
     String action = getPart(cmd, ':', 1);
@@ -276,34 +238,34 @@ void processCommand(String cmd) {
     String enPinStr = getPart(cmd, ':', 4);
     String stepsStr = getPart(cmd, ':', 5);
     String speedStr = getPart(cmd, ':', 6);
-    
+
     stepPinStr.replace("D", "");
     dirPinStr.replace("D", "");
     enPinStr.replace("D", "");
-    
+
     int targetStepPin = stepPinStr.toInt();
     int targetDirPin = dirPinStr.toInt();
     int targetEnPin = enPinStr.toInt();
     long targetSteps = stepsStr.toInt();
     int targetSpeed = speedStr.toInt();
-    
+
     // Yön belirleme (CNC kilit motoru açma/kapama)
     bool direction = (action == "OPEN") ? HIGH : LOW;
     stepDelay = targetSpeed;
-    
+
     // Motoru sür
-    motorStep(targetStepPin, targetDirPin, targetEnPin, direction, targetSteps);
-    
+    motorStep(targetStepPin, targetDirPin, direction, targetSteps);
+
     // Sürücüyü devre dışı bırak (ısınmayı önleme)
     digitalWrite(targetEnPin, HIGH);
-    
+
     Serial.println("GATE:OK");
   }
-  
+
   else if (cmd == "WHOAMI") {
     Serial.println("ID:GatesNano;NAME:GatesNano");
   }
-  
+
   else if (cmd == "help") {
     menuGoster();
   }
@@ -323,27 +285,35 @@ void processCommand(String cmd) {
   }
 
   else if (cmd == "x+") {
-    motorStep(X_STEP, X_DIR, ENABLE_PIN, HIGH, stepsX);
+    motorStep(X_STEP, X_DIR, HIGH, stepsX);
     digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("X ileri "); Serial.print(stepsX); Serial.println(" adim");
+    Serial.print("X ileri ");
+    Serial.print(stepsX);
+    Serial.println(" adim");
   }
- 
+
   else if (cmd == "x-") {
-    motorStep(X_STEP, X_DIR, ENABLE_PIN, LOW, stepsX);
+    motorStep(X_STEP, X_DIR, LOW, stepsX);
     digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("X geri "); Serial.print(stepsX); Serial.println(" adim");
+    Serial.print("X geri ");
+    Serial.print(stepsX);
+    Serial.println(" adim");
   }
- 
+
   else if (cmd == "y+") {
-    motorStep(Y_STEP, Y_DIR, ENABLE_PIN, HIGH, stepsY);
+    motorStep(Y_STEP, Y_DIR, HIGH, stepsY);
     digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("Y ileri "); Serial.print(stepsY); Serial.println(" adim");
+    Serial.print("Y ileri ");
+    Serial.print(stepsY);
+    Serial.println(" adim");
   }
- 
+
   else if (cmd == "y-") {
-    motorStep(Y_STEP, Y_DIR, ENABLE_PIN, LOW, stepsY);
+    motorStep(Y_STEP, Y_DIR, LOW, stepsY);
     digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("Y geri "); Serial.print(stepsY); Serial.println(" adim");
+    Serial.print("Y geri ");
+    Serial.print(stepsY);
+    Serial.println(" adim");
   }
 
   else if (cmd == "homex") {
@@ -380,53 +350,52 @@ void processCommand(String cmd) {
     Serial.println("Izleme modu. Reset ile cikilir");
     while (true) {
       Serial.print("X=");
-      if (digitalRead(SENSOR_X)) Serial.print("BOS");
-      else Serial.print("ALGILADI");
+      if (digitalRead(SENSOR_X))
+        Serial.print("BOS");
+      else
+        Serial.print("ALGILADI");
 
       Serial.print("   Y=");
-      if (digitalRead(SENSOR_Y)) Serial.println("BOS");
-      else Serial.println("ALGILADI");
+      if (digitalRead(SENSOR_Y))
+        Serial.println("BOS");
+      else
+        Serial.println("ALGILADI");
 
       delay(250);
     }
-  }
-  else if (cmd == "GET_LIMITS") {
-    Serial.print("EVENT:LIMIT:IN:");
-    Serial.println(digitalRead(LIMIT_X) == LOW ? "OPEN" : "CLOSED");
-    Serial.print("EVENT:LIMIT:OUT:");
-    Serial.println(digitalRead(LIMIT_Y) == LOW ? "OPEN" : "CLOSED");
   }
 }
 
 void durumGoster() {
   Serial.println();
-  Serial.print("X Sensor (Pin "); Serial.print(SENSOR_X); Serial.print(") : ");
+  Serial.print("X Sensor (Pin ");
+  Serial.print(SENSOR_X);
+  Serial.print(") : ");
   if (digitalRead(SENSOR_X) == LOW)
     Serial.println("ALGILADI");
   else
     Serial.println("BOS");
 
-  Serial.print("Y Sensor (Pin "); Serial.print(SENSOR_Y); Serial.print(") : ");
+  Serial.print("Y Sensor (Pin ");
+  Serial.print(SENSOR_Y);
+  Serial.print(") : ");
   if (digitalRead(SENSOR_Y) == LOW)
     Serial.println("ALGILADI");
   else
     Serial.println("BOS");
-
-  Serial.print("Giris Kapisi Limit (Pin "); Serial.print(LIMIT_X); Serial.print(") : ");
-  Serial.println(digitalRead(LIMIT_X) == LOW ? "ACIK (OPEN)" : "KAPALI (CLOSED)");
-
-  Serial.print("Cikis Kapisi Limit (Pin "); Serial.print(LIMIT_Y); Serial.print(") : ");
-  Serial.println(digitalRead(LIMIT_Y) == LOW ? "ACIK (OPEN)" : "KAPALI (CLOSED)");
 
   Serial.print("Motorlar : ");
   if (digitalRead(ENABLE_PIN) == LOW)
     Serial.println("AKTIF");
   else
     Serial.println("PASIF");
-    
-  Serial.print("Ayarlar  : Delay (Hiz) = "); Serial.print(stepDelay);
-  Serial.print("us, Steps X = "); Serial.print(stepsX);
-  Serial.print(", Steps Y = "); Serial.println(stepsY);
+
+  Serial.print("Ayarlar  : Delay (Hiz) = ");
+  Serial.print(stepDelay);
+  Serial.print("us, Steps X = ");
+  Serial.print(stepsX);
+  Serial.print(", Steps Y = ");
+  Serial.println(stepsY);
   Serial.println();
 }
 
