@@ -167,27 +167,6 @@ class ProductionManager:
         self.log("OTOMATİK: Üretim programı yükleniyor...")
         
         try:
-            # 1. Read config & active recipe
-            config_row = self.db.fetchone("SELECT * FROM system_config WHERE id = 1")
-            if not config_row:
-                self.log("HATA: Sistem parametreleri yüklenemedi!")
-                self.db.execute("UPDATE system_state SET mode = 'ARIZA' WHERE id = 1")
-                return
-                
-            recipe_id = config_row["recipeId"]
-            recipe = self.db.fetchone("SELECT * FROM recipes WHERE id = ?", (recipe_id,))
-            if not recipe:
-                self.log(f"HATA: Seçili Reçete ({recipe_id}) veritabanında bulunamadı!")
-                self.db.execute("UPDATE system_state SET mode = 'ARIZA' WHERE id = 1")
-                return
-                
-            target_count = recipe["targetCount"]
-            fill_time_ms = recipe["fillTimeMs"]
-            settling_time_ms = recipe["settlingTimeMs"]
-            drip_wait_ms = recipe["dripWaitTimeMs"]
-            
-            self.log(f"Reçete: {recipe['name']} | Şişe Hedefi: {target_count} | Dolum: {fill_time_ms}ms")
-            
             # Fetch gate pins
             in_gate = self.db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'inputGate'")
             out_gate = self.db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'outputGate'")
@@ -217,6 +196,27 @@ class ProductionManager:
                     self.db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', stopAfterCycleRequested = 0 WHERE id = 1")
                     self.log("Döngü sonu durdurma istendi. Üretim askıya alındı.")
                     break
+                    
+                # Read config & active recipe dynamically at the start of each cycle
+                config_row = self.db.fetchone("SELECT * FROM system_config WHERE id = 1")
+                if not config_row:
+                    self.log("HATA: Sistem parametreleri yüklenemedi!")
+                    self.db.execute("UPDATE system_state SET mode = 'ARIZA' WHERE id = 1")
+                    break
+                    
+                recipe_id = config_row["recipeId"]
+                recipe = self.db.fetchone("SELECT * FROM recipes WHERE id = ?", (recipe_id,))
+                if not recipe:
+                    self.log(f"HATA: Seçili Reçete ({recipe_id}) veritabanında bulunamadı!")
+                    self.db.execute("UPDATE system_state SET mode = 'ARIZA' WHERE id = 1")
+                    break
+                    
+                target_count = recipe["targetCount"]
+                fill_time_ms = recipe["fillTimeMs"]
+                settling_time_ms = recipe["settlingTimeMs"]
+                drip_wait_ms = recipe["dripWaitTimeMs"]
+                
+                self.log(f"Reçete Başlatıldı: {recipe['name']} | Şişe Hedefi: {target_count} | Dolum: {fill_time_ms}ms")
                     
                 cycle_start_time = time.time()
                 
@@ -269,15 +269,15 @@ class ProductionManager:
                 valve_actions = []
                 for v in valves:
                     # Priority for valve duration:
-                    # 1. Custom duration in recipe
-                    # 2. Valve's own pulseDuration
-                    # 3. Recipe's general fillTimeMs
+                    # 1. Custom duration in recipe for this valve
+                    # 2. Recipe's general fillTimeMs
+                    # 3. Valve's own default pulseDuration
                     duration = fill_time_ms
                     try:
                         recipe_valve_durs = json.loads(recipe.get("valveDurations") or "{}")
-                        duration = recipe_valve_durs.get(str(v["id"])) or recipe_valve_durs.get(v["id"]) or v["pulseDuration"] or fill_time_ms
+                        duration = recipe_valve_durs.get(str(v["id"])) or recipe_valve_durs.get(v["id"]) or fill_time_ms or v["pulseDuration"]
                     except:
-                        duration = v["pulseDuration"] or fill_time_ms
+                        duration = fill_time_ms or v["pulseDuration"]
                         
                     valve_actions.append({
                         "id": v["id"],
@@ -350,6 +350,15 @@ class ProductionManager:
                 
                 if success:
                     self.log(f"Döngü başarıyla tamamlandı ({duration_ms} ms).")
+                    self.db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE', inputCount = 0, outputCount = 0 WHERE id = 1")
+                    self.broadcast_callback()
+                    
+                    self.log("Her dolum sonrası Nano durumları otomatik sıfırlanıyor (RESET)...")
+                    self.hw.send_command("RESET", target_port="GatesNano")
+                    self.hw.send_command("RESET", target_port="ValvesNano")
+                    self.db.execute("UPDATE nanos SET status = 'OFFLINE'")
+                    self.broadcast_callback()
+                    
                     await asyncio.sleep(0.5)
                 else:
                     self.db.execute("UPDATE system_state SET activePrompt = 'COUNT_MISMATCH' WHERE id = 1")
@@ -362,6 +371,14 @@ class ProductionManager:
                         if not state_row or state_row["mode"] != "OTOMATİK":
                             break
                         if state_row["activePrompt"] is None:
+                            self.db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE', inputCount = 0, outputCount = 0 WHERE id = 1")
+                            self.broadcast_callback()
+                            
+                            self.log("Her dolum sonrası Nano durumları otomatik sıfırlanıyor (RESET)...")
+                            self.hw.send_command("RESET", target_port="GatesNano")
+                            self.hw.send_command("RESET", target_port="ValvesNano")
+                            self.db.execute("UPDATE nanos SET status = 'OFFLINE'")
+                            self.broadcast_callback()
                             break
                         await asyncio.sleep(0.1)
                         
@@ -409,9 +426,9 @@ class ProductionManager:
                 duration = fill_time_ms
                 try:
                     recipe_valve_durs = json.loads(recipe.get("valveDurations") or "{}")
-                    duration = recipe_valve_durs.get(str(v["id"])) or recipe_valve_durs.get(v["id"]) or v["pulseDuration"] or fill_time_ms
+                    duration = recipe_valve_durs.get(str(v["id"])) or recipe_valve_durs.get(v["id"]) or fill_time_ms or v["pulseDuration"]
                 except:
-                    duration = v["pulseDuration"] or fill_time_ms
+                    duration = fill_time_ms or v["pulseDuration"]
                     
                 valve_actions.append({
                     "id": v["id"],
@@ -450,6 +467,13 @@ class ProductionManager:
                 self.log(f"DOLUM: Eşzamanlı dolum tamamlandı. Hedef: {fill_time_ms} ms, Gerçekleşen: {elapsed} ms")
                 
             self.log("DOLUM: Operatör dolum sırası tamamlandı.")
+            
+            # Reset Nanos automatically after manual operator fill
+            self.log("Operatör dolumu bitti. Nano durumları otomatik sıfırlanıyor (RESET)...")
+            self.hw.send_command("RESET", target_port="GatesNano")
+            self.hw.send_command("RESET", target_port="ValvesNano")
+            self.db.execute("UPDATE nanos SET status = 'OFFLINE'")
+            self.broadcast_callback()
         except Exception as e:
             self.log(f"DOLUM HATA: {e}")
             self.hw.all_valves_off()

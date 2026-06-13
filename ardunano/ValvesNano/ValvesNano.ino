@@ -51,6 +51,8 @@ const int VALVE_MAX_PIN = 13; // D13
 String serialBuffer = "";
 String ethernetBuffer = "";
 
+void(* resetFunc) (void) = 0; // Software reset function declaration
+
 // --- Function Declarations ---
 void sendResponse(const String &msg);
 void processCommand(const String &cmd);
@@ -301,6 +303,13 @@ void processCommand(const String &cmd) {
   else if (cmd == "VALVE:ALL_OFF") {
     allValvesOff();
     sendResponse("STATUS:VALVES:ALL_OFF");
+  }
+  // Handle software reset
+  else if (cmd == "RESET") {
+    allValvesOff();
+    sendResponse("STATUS:RESETTING");
+    delay(100);
+    resetFunc();
   }
 }
 

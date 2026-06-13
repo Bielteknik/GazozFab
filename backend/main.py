@@ -109,6 +109,12 @@ def init_db():
                 if row and any(x in str(row[0]).lower() for x in ['serial0', 'ttyama0', 'ttys0']):
                     conn.execute("UPDATE nanos SET port = '/dev/ttyUSB1' WHERE id = 'ValvesNano'")
                     print(f"[DB Migration] Auto-migrated ValvesNano port from {row[0]} to /dev/ttyUSB1")
+                
+                # Seed default 40ml and 660ms configurations
+                conn.execute("UPDATE recipes SET volumeMl = 40, fillTimeMs = 660, valveDurations = '{\"10\":660,\"11\":660,\"12\":660,\"13\":660,\"14\":660,\"15\":660,\"16\":660,\"17\":660}' WHERE id = 'default_recipe'")
+                conn.execute("UPDATE system_config SET volumeMl = 40, fillTimeMs = 660 WHERE id = 1")
+                conn.execute("UPDATE valves SET pulseDuration = 660")
+                print("[DB Migration] Configured default recipe and valves to 40ml / 660ms.")
             except Exception as e:
                 print(f"[DB Migration Error] {e}")
             conn.commit()
@@ -740,6 +746,15 @@ async def handle_action(sid, data):
             if k == 'valveDurations':
                 v = json.dumps(v)
             db.execute(f"UPDATE recipes SET {k} = ? WHERE id = ?", (v, rid))
+        
+        # Sync changes to system_config if this is the active recipe
+        active_cfg = db.fetchone("SELECT recipeId FROM system_config WHERE id = 1")
+        if active_cfg and active_cfg["recipeId"] == rid:
+            recipe = db.fetchone("SELECT * FROM recipes WHERE id = ?", (rid,))
+            if recipe:
+                db.execute("UPDATE system_config SET targetCount = ?, fillTimeMs = ?, volumeMl = ?, settlingTimeMs = ?, dripWaitTimeMs = ? WHERE id = 1",
+                           (recipe["targetCount"], recipe["fillTimeMs"], recipe["volumeMl"], recipe["settlingTimeMs"], recipe["dripWaitTimeMs"]))
+                
         add_log(f"Reçete {rid} parametreleri güncellendi.")
 
     elif action_type == 'ANSWER_PROMPT':

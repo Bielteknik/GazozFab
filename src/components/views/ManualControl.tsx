@@ -67,6 +67,12 @@ export const ManualControl: React.FC<ManualControlProps> = ({
     }
   }, [data.recipes, data.valves]);
 
+  useEffect(() => {
+    if (selectedRecipe) {
+      setTestDuration(selectedRecipe.fillTimeMs || 1000);
+    }
+  }, [selectedRecipe]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === '1234') {

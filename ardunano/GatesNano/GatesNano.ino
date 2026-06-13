@@ -15,6 +15,8 @@ long stepsY = 600;
 // Non-blocking Seri Port Okuma Değişkenleri
 String inputBuffer = "";
 
+void(* resetFunc) (void) = 0; // Software reset function declaration
+
 // Lazer Sensör Durum Takip Değişkenleri (Doğru Debounce ve Değişim Algılama)
 int sensXState = HIGH; // Mevcut kararlı durum
 int sensYState = HIGH;
@@ -365,6 +367,13 @@ void processCommand(String cmd) {
 
       delay(250);
     }
+  }
+  
+  // Software reset command
+  else if (cmd == "RESET") {
+    Serial.println("RESETTING");
+    delay(100);
+    resetFunc();
   }
 }
 
