@@ -63,8 +63,26 @@ export default function App() {
     manualLogin,
     manualLogout,
     manualToken,
-    manualExpires
+    manualExpires,
+    softReboot
   } = useSocketState();
+
+  const handleSoftReboot = () => {
+    softReboot();
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Oturumu kapatmak ve tüm sistem bağlantılarını sıfırlamak istediğinize emin misiniz?')) {
+      manualLogout();
+      setTimeout(() => {
+        setCurrentTab('dashboard');
+        window.location.reload();
+      }, 500);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#0B0D11] text-[#E0E0E0] overflow-hidden font-sans border-4 border-[#1F2937]">
@@ -72,7 +90,7 @@ export default function App() {
         currentTab={currentTab} 
         onChangeTab={setCurrentTab}
         data={data}
-        onLogout={manualLogout}
+        onLogout={handleLogout}
       />
       
       <main className="flex-1 p-3 h-full overflow-hidden bg-[#0a0f18] flex flex-col">
@@ -130,6 +148,7 @@ export default function App() {
              onAcknowledgeStartup={acknowledgeStartup}
              onAcknowledgeFault={acknowledgeFault}
              onTriggerFault={triggerFault}
+             onSoftReboot={handleSoftReboot}
           />
         )}
         {currentTab === 'hardware' && (
@@ -170,6 +189,7 @@ export default function App() {
              onUpdateGate={updateGate}
              onUpdateSystemGate={updateSystemGate}
              onSystemReset={systemReset}
+             onSoftReboot={handleSoftReboot}
              testValvePulse={testValvePulse}
           />
         )}

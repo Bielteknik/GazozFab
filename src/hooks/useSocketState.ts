@@ -113,7 +113,7 @@ export function useSocketState() {
     manualExpires: null,
     manualLogin: () => {}, // No longer needed
     manualLogout: () => {
-      emitAction('EXIT_APPLICATION');
+      emitAction('SOFT_REBOOT');
     },
     setMode: (mode: SystemMode) => {
       emitAction('SET_MODE', { mode });
@@ -368,6 +368,9 @@ export function useSocketState() {
     systemReset: () => {
       emitAction('SYSTEM_RESET');
       if (!isConnected) setData(INITIAL_STATE);
+    },
+    softReboot: () => {
+      emitAction('SOFT_REBOOT');
     }
   };
 }

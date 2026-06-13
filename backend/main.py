@@ -769,6 +769,39 @@ async def handle_action(sid, data):
         hw.cleanup()
         add_log("Sistem tamamen sıfırlandı.")
 
+    elif action_type == 'SOFT_REBOOT':
+        # 1. Cancel active production loops
+        prod.is_running = False
+        if prod.step_task:
+            try:
+                prod.step_task.cancel()
+            except:
+                pass
+            prod.step_task = None
+        
+        # 2. Force all valves off
+        try:
+            hw.all_valves_off()
+        except Exception as e:
+            print(f"[Soft Reboot] Valves off failed: {e}")
+            
+        # 3. Reset states in DB (keep settings, recipes)
+        db.execute("UPDATE valves SET isOpen = 0")
+        db.execute("UPDATE gates SET isOpen = 0, position = 0")
+        db.execute("DELETE FROM active_alerts")
+        db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE', stopAfterCycleRequested = 0, activePrompt = NULL WHERE id = 1")
+        
+        # 4. Cleanup connections
+        try:
+            hw.cleanup()
+        except Exception as e:
+            print(f"[Soft Reboot] Hardware cleanup failed: {e}")
+            
+        # 5. Reload hardware config
+        reload_hardware_config()
+        
+        add_log("Sistem sanal sıfırlama (Soft Reboot) ve bağlantı yenileme işlemi yapıldı.")
+
     elif action_type == 'TEST_VALVE_PULSE':
         vid = payload.get('id')
         duration = payload.get('duration', 1000)

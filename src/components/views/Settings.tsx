@@ -36,6 +36,7 @@ interface SettingsProps {
   onUpdateGate: (id: string, updates: Partial<any>) => void;
   onUpdateSystemGate: (target: 'inputGate' | 'outputGate', updates: Partial<any>) => void;
   onSystemReset: () => void;
+  onSoftReboot: () => void;
   testValvePulse: (id: number, duration: number) => void;
 }
 
@@ -53,6 +54,7 @@ export function Settings({
   onUpdateGate,
   onUpdateSystemGate,
   onSystemReset,
+  onSoftReboot,
   testValvePulse
 }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('RECIPES');
@@ -800,22 +802,39 @@ export function Settings({
 
                 {/* GLOBAL RESET - DANGER ZONE */}
                 <div className="mt-6 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl space-y-4">
-                   <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
-                      <Shield size={12} /> TEHLİKELİ BÖLGE
-                   </h4>
-                   <p className="text-[9px] text-gray-500 leading-relaxed italic">
-                      Sistem donanım bağlantıları koptuğunda veya kararsızlık durumunda Global Reset atarak sistemi sanki yeni başlatılmış gibi fabrika ayarlarına döndürebilirsiniz.
-                   </p>
-                   <button 
-                      onClick={() => {
-                         if (window.confirm('TÜM SİSTEM SIFIRLANACAK! Emin misiniz?')) {
-                            onSystemReset();
-                         }
-                      }}
-                      className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-[11px] shadow-lg shadow-red-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                   >
-                      <RefreshCw size={14} /> GLOBAL SİSTEM RESET AT
-                   </button>
+                    <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
+                       <Shield size={12} /> TEHLİKELİ BÖLGE
+                    </h4>
+                    
+                    <p className="text-[9px] text-gray-500 leading-relaxed italic">
+                       Sistem donanım bağlantıları koptuğunda, valfler kilitlendiğinde veya ekran donduğunda ayarları silmeden tüm bağlantıları kapatıp yeniden başlatabilirsiniz.
+                    </p>
+                    <button 
+                       onClick={() => {
+                          if (window.confirm('Sistem bağlantıları sıfırlanacak ve valfler kapatılacak. Emin misiniz?')) {
+                             onSoftReboot();
+                          }
+                       }}
+                       className="w-full py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold text-[11px] shadow-lg shadow-orange-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                       <RefreshCw size={14} /> SİSTEMİ YENİDEN BAĞLAT (SOFT REBOOT)
+                    </button>
+
+                    <div className="border-t border-red-500/10 pt-4">
+                       <p className="text-[9px] text-gray-500 leading-relaxed italic mb-2">
+                          Fabrika ayarları sıfırlama işlemi tüm reçeteleri, geçmişi ve donanım kayıtlarını kalıcı olarak temizler.
+                       </p>
+                       <button 
+                          onClick={() => {
+                             if (window.confirm('TÜM SİSTEM SIFIRLANACAK! Emin misiniz?')) {
+                                onSystemReset();
+                             }
+                          }}
+                          className="w-full py-2 bg-red-950/40 hover:bg-red-900/60 border border-red-900/50 text-red-400 rounded-xl font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2"
+                       >
+                          <RefreshCw size={12} /> SİSTEMİ FABRİKA AYARLARINA SIFIRLA
+                       </button>
+                    </div>
                 </div>
               </div>
             </motion.div>

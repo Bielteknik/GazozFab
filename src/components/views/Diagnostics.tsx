@@ -1,6 +1,6 @@
 import React from 'react';
 import { SystemData } from '../../types/system';
-import { Fingerprint, CheckSquare, Settings, AlertTriangle, Bug } from 'lucide-react';
+import { Fingerprint, CheckSquare, Settings, AlertTriangle, Bug, RefreshCw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface DiagnosticsProps {
@@ -8,9 +8,10 @@ interface DiagnosticsProps {
   onAcknowledgeStartup: () => void;
   onAcknowledgeFault: () => void;
   onTriggerFault: (type: 'VALVE_STUCK' | 'SENSOR_UNSTABLE' | 'COMM_LOSS' | 'TIMEOUT_SETTLE') => void;
+  onSoftReboot: () => void;
 }
 
-export function Diagnostics({ data, onAcknowledgeStartup, onAcknowledgeFault, onTriggerFault }: DiagnosticsProps) {
+export function Diagnostics({ data, onAcknowledgeStartup, onAcknowledgeFault, onTriggerFault, onSoftReboot }: DiagnosticsProps) {
   
   return (
     <div className="flex flex-col h-full space-y-3">
@@ -168,6 +169,26 @@ export function Diagnostics({ data, onAcknowledgeStartup, onAcknowledgeFault, on
                   <button onClick={() => onTriggerFault('COMM_LOSS')} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-800 rounded p-1.5 text-[9px] font-bold transition-colors">İletişim Kaybı</button>
                   <button onClick={() => onTriggerFault('TIMEOUT_SETTLE')} className="bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-800 rounded p-1.5 text-[9px] font-bold transition-colors">Durum Zaman Aşımı</button>
                </div>
+           </div>
+
+           {/* Emergency Soft Reboot */}
+           <div className="bg-[#151921] border border-[#2D333F] rounded p-3">
+               <h3 className="text-[10px] uppercase font-bold text-gray-400 mb-1 border-l-2 border-orange-500 pl-2 flex items-center">
+                  <RefreshCw className="mr-2 text-orange-500 animate-spin-slow" size={12} /> Acil Kurtarma / Sanal Sıfırlama
+               </h3>
+               <p className="text-[8px] text-gray-500 uppercase font-mono mb-3 leading-relaxed">
+                  Bağlantı donmalarında verileri silmeden bağlantıları yeniler ve valfleri kapatır.
+               </p>
+               <button 
+                  onClick={() => {
+                     if (window.confirm('Tüm donanım bağlantıları sıfırlanacak ve valfler kapatılacak. Emin misiniz?')) {
+                        onSoftReboot();
+                     }
+                  }} 
+                  className="w-full bg-orange-600 hover:bg-orange-500 text-white rounded p-2 text-[9px] font-black tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5"
+               >
+                  <RefreshCw size={12} /> SİSTEMİ YENİDEN BAĞLAT (SOFT REBOOT)
+               </button>
            </div>
         </div>
 
