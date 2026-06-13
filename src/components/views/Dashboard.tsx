@@ -220,7 +220,7 @@ export function Dashboard({
       </div>
 
       {/* Main Flow Visualization */}
-      <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+      <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-y-auto">
         
         {/* Left Column: Flow representation */}
         <div className="col-span-12 lg:col-span-8 bg-[#151921] border border-[#2D333F] rounded p-3 flex flex-col relative overflow-hidden shadow-inner min-h-[400px]">

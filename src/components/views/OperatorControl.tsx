@@ -89,7 +89,7 @@ export function OperatorControl({
     <div className="flex flex-col h-full space-y-4 overflow-hidden">
       
       {/* Top action bar - Operator Control version */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-4 md:gap-0">
+      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-3">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <h2 className="text-sm font-bold tracking-tight text-white flex items-center">
@@ -106,12 +106,12 @@ export function OperatorControl({
           </div>
         </div>
         
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 w-full xl:w-auto">
           {/* Step 1: Entry Gate */}
           <button
             onClick={() => operateGate('inputGate', data.inputGate.isOpen ? 0 : 400)}
             className={cn(
-              "flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[11px] transition-all border whitespace-nowrap active:scale-95",
+              "flex-1 xl:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[11px] transition-all border whitespace-nowrap active:scale-95",
               data.inputGate.isOpen 
                 ? "bg-red-900/20 border-red-800 text-red-500 hover:bg-red-900/40" 
                 : "bg-emerald-900/40 border-emerald-800 text-emerald-400 hover:bg-emerald-900"
@@ -146,7 +146,7 @@ export function OperatorControl({
                   : 'Dolum işlemini başlat'
             }
             className={cn(
-              "flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded font-bold text-[11px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden",
+              "flex-1 xl:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded font-bold text-[11px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden",
               isFilling 
                 ? "bg-blue-600/20 border-blue-500 text-blue-400" 
                 : (data.inputGate.isOpen || data.outputGate.isOpen)
@@ -175,7 +175,7 @@ export function OperatorControl({
           <button
             onClick={() => operateGate('outputGate', data.outputGate.isOpen ? 0 : 400)}
             className={cn(
-              "flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[11px] transition-all border whitespace-nowrap active:scale-95",
+              "flex-1 xl:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[11px] transition-all border whitespace-nowrap active:scale-95",
               data.outputGate.isOpen 
                 ? "bg-orange-900/20 border-orange-800 text-orange-500 hover:bg-orange-900/40" 
                 : "bg-orange-600/20 border-orange-500 text-orange-400 hover:bg-orange-600/40"
@@ -185,12 +185,12 @@ export function OperatorControl({
             <span>{data.outputGate.isOpen ? 'TAHLİYEYİ DURDUR' : 'TAHLİYEYİ BAŞLAT'}</span>
           </button>
 
-          <div className="w-px h-8 bg-gray-800 mx-1 hidden md:block" />
+          <div className="w-px h-8 bg-gray-800 mx-1 hidden xl:block" />
 
           {/* Exit Mode */}
           <button
             onClick={() => setMode('BEKLEMEDE')}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-900/40 border border-red-800 hover:bg-red-900 text-red-500 px-4 py-2 rounded font-bold text-[11px] transition-all active:scale-95 whitespace-nowrap"
+            className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-red-900/40 border border-red-800 hover:bg-red-900 text-red-500 px-4 py-2 rounded font-bold text-[11px] transition-all active:scale-95 whitespace-nowrap"
           >
             <ShieldAlert size={14} />
             <span>MODDAN ÇIK</span>
@@ -243,7 +243,7 @@ export function OperatorControl({
       </div>
 
       {/* Main Flow Visualization - Same layout as Dashboard */}
-      <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+      <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-y-auto">
         
         {/* Left Column: Flow representation + Bottom tabbed messages inside */}
         <div className="col-span-12 lg:col-span-8 bg-[#151921] border border-[#2D333F] rounded p-3 flex flex-col relative overflow-hidden shadow-inner min-h-[400px]">

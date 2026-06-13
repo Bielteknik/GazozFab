@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, Sliders, History, AlertTriangle, Settings, Server, ChevronLeft, ChevronRight, LogOut, UserCircle, Wrench } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Sliders, History, AlertTriangle, Settings, Server, ChevronLeft, ChevronRight, LogOut, UserCircle, Wrench, Maximize, Minimize } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SystemData } from '../../types/system';
 
@@ -12,6 +12,30 @@ interface SidebarProps {
 
 export function Sidebar({ currentTab, onChangeTab, data, onLogout }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen().catch((err) => {
+        console.error(`Error attempting to exit fullscreen: ${err.message}`);
+      });
+    }
+  };
+
   const systemMode = data.mode;
   const isProcessActive = systemMode === 'OTOMATİK' || systemMode === 'BASLATMA' || systemMode === 'YIKAMA';
 
@@ -137,6 +161,19 @@ export function Sidebar({ currentTab, onChangeTab, data, onLogout }: SidebarProp
       </div>
       
       <div className={cn("mt-auto border-t border-[#374151]", isCollapsed ? "p-2" : "p-3")}>
+        {/* Fullscreen Toggle Button */}
+        <button 
+           title={isCollapsed ? (isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran Modu") : undefined}
+           onClick={toggleFullscreen}
+           className={cn(
+             "w-full flex items-center mb-1.5 rounded text-[11px] font-bold transition-all text-gray-400 hover:bg-[#1C2029] hover:text-gray-200 border border-transparent",
+             isCollapsed ? "justify-center py-2 px-0" : "space-x-2 px-2 py-2"
+           )}
+        >
+          {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+          {!isCollapsed && <span>{isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran Modu"}</span>}
+        </button>
+
         <button 
            disabled={isProcessActive}
            title={isCollapsed ? (isProcessActive ? "Sistem Aktif - Çıkış Yapılamaz" : "Çıkış") : undefined}
