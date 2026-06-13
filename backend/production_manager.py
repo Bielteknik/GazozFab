@@ -292,12 +292,14 @@ class ProductionManager:
                 self.broadcast_callback()
                 
                 # Pulse concurrently
+                start_t = time.time()
                 await self.hw.pulse_valves_concurrent(valve_actions)
+                elapsed_ms = int((time.time() - start_t) * 1000)
                 
                 # Set all closed in DB
                 self.db.execute("UPDATE valves SET isOpen = 0")
                 self.broadcast_callback()
-                self.log("Dolum aşaması tamamlandı.")
+                self.log(f"Dolum aşaması tamamlandı. Hedef: {fill_time_ms} ms, Gerçekleşen: {elapsed_ms} ms")
                 
                 # ADIM 5: Damla bekleme
                 self.db.execute("UPDATE system_state SET autoState = 'DAMLA_BEKLEME' WHERE id = 1")
@@ -426,20 +428,26 @@ class ProductionManager:
                     self.broadcast_callback()
                     
                     # Pulse this single valve
+                    start_t = time.time()
                     await self.hw.pulse_valve(action["id"], action["pin"], action["duration"], action["device"])
+                    elapsed = int((time.time() - start_t) * 1000)
                     
                     self.db.execute("UPDATE valves SET isOpen = 0 WHERE id = ?", (action["id"],))
                     self.broadcast_callback()
+                    self.log(f"DOLUM: Vana {action['id']} dolum tamamlandı. Hedef: {action['duration']} ms, Gerçekleşen: {elapsed} ms")
             else:
                 # Concurrent (eşzamanlı) fill
                 for v in valves:
                     self.db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (v["id"],))
                 self.broadcast_callback()
                 
+                start_t = time.time()
                 await self.hw.pulse_valves_concurrent(valve_actions)
+                elapsed = int((time.time() - start_t) * 1000)
                 
                 self.db.execute("UPDATE valves SET isOpen = 0")
                 self.broadcast_callback()
+                self.log(f"DOLUM: Eşzamanlı dolum tamamlandı. Hedef: {fill_time_ms} ms, Gerçekleşen: {elapsed} ms")
                 
             self.log("DOLUM: Operatör dolum sırası tamamlandı.")
         except Exception as e:

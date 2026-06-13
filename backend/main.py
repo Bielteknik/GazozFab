@@ -781,7 +781,10 @@ async def handle_action(sid, data):
                 try:
                     db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (vid,))
                     broadcast_callback()
+                    start_t = time.time()
                     await hw.pulse_valve(vid, row['pin'], duration, target_device)
+                    elapsed = int((time.time() - start_t) * 1000)
+                    add_log(f"Manuel valf darbe testi tamamlandı -> Valf: {vid}, Hedef: {duration} ms, Gerçekleşen: {elapsed} ms")
                 finally:
                     db.execute("UPDATE valves SET isOpen = 0 WHERE id = ?", (vid,))
                     broadcast_callback()
@@ -925,88 +928,13 @@ async def cleanup_background_tasks(app):
     )
     hw.cleanup()
 
-def run_native():
-    import sys
-    from PySide6.QtWidgets import QApplication
-    from PySide6.QtQml import QQmlApplicationEngine
-    import qasync
-
-    # Add root dir to sys.path to find nativeui
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, root_dir)
-    from nativeui.ui_bridge import UIBridge
-
-    # Start application
-    qapp = QApplication(sys.argv)
-    
-    # Set qasync loop as default event loop
-    loop = qasync.QEventLoop(qapp)
-    asyncio.set_event_loop(loop)
-
-    # Initialize backend
-    init_db()
-    nanos = db.fetchall("SELECT * FROM nanos")
-    sensors = db.fetchall("SELECT * FROM sensors")
-    hw.apply_config(nanos, sensors)
-
-    # Initialize bridge
-    bridge = UIBridge(db, hw, prod)
-
-    # Custom broadcast callback for native UI
-    def native_broadcast_callback():
-        bridge.update_state()
-
-    # Redirect broadcast callbacks to bridge
-    global broadcast_callback
-    broadcast_callback = native_broadcast_callback
-    prod.broadcast_callback = native_broadcast_callback
-
-    # Start backend async tasks under qasync loop
-    serial_task = asyncio.create_task(serial_polling_loop())
-    ultrasonic_task = asyncio.create_task(ultrasonic_polling_loop())
-    production_task = asyncio.create_task(prod.run_loop())
-    tcp_task = asyncio.create_task(hw.start_tcp_server(host="0.0.0.0", port=1978))
-    udp_task = asyncio.create_task(hw.start_udp_discovery_server(host="0.0.0.0", port=1978))
-
-    # Load QML Interface
-    engine = QQmlApplicationEngine()
-    engine.rootContext().setContextProperty("uiBridge", bridge)
-
-    qml_path = os.path.join(root_dir, "nativeui", "main.qml")
-    engine.load(qml_path)
-
-    if not engine.rootObjects():
-        print("[Native HMI] Hata: QML arayüzü yüklenemedi.")
-        sys.exit(-1)
-
-    print("[Native HMI] Çalışıyor. Kapatmak için Pencereyi kapatın veya Ctrl+C kullanın.")
-
-    try:
-        with loop:
-            loop.run_forever()
-    except KeyboardInterrupt:
-        print("[Native HMI] Kapatılıyor...")
-    finally:
-        # Cleanup
-        serial_task.cancel()
-        ultrasonic_task.cancel()
-        production_task.cancel()
-        tcp_task.cancel()
-        udp_task.cancel()
-        hw.cleanup()
-
 # Server Startup
 if __name__ == '__main__':
-    import sys
-    if "--native" in sys.argv:
-        run_native()
-    else:
-        app = web.Application()
-        sio.attach(app)
-        app.on_startup.append(start_background_tasks)
-        app.on_cleanup.append(cleanup_background_tasks)
-        
-        port = 8000
-        print(f"[Server] Starting python backend server on port {port}...")
-        web.run_app(app, host='0.0.0.0', port=port)
-
+    app = web.Application()
+    sio.attach(app)
+    app.on_startup.append(start_background_tasks)
+    app.on_cleanup.append(cleanup_background_tasks)
+    
+    port = 8000
+    print(f"[Server] Starting python backend server on port {port}...")
+    web.run_app(app, host='0.0.0.0', port=port)

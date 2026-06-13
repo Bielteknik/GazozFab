@@ -13,14 +13,7 @@ echo -e "${BLUE}======================================================${NC}"
 # Kök dizine geç
 cd "$(dirname "$0")"
 
-# Çalışma modu tespiti
-MODE="react"
-if [ "$1" == "--native" ]; then
-    MODE="native"
-    echo -e "${YELLOW}[Mod] Yerel HMI (PySide6 + QML) modu aktif edildi.${NC}"
-else
-    echo -e "${YELLOW}[Mod] Web Arayüzü (React + WebSockets) modu aktif edildi.${NC}"
-fi
+echo -e "${YELLOW}[Mod] Web Arayüzü (React + WebSockets) modu aktif edildi.${NC}"
 
 
 # 1. Node.js bağımlılık kontrolü
@@ -90,12 +83,6 @@ cleanup() {
 # Sinyalleri yakala (CTRL+C, Kapatma vb.)
 trap cleanup INT TERM EXIT
 
-if [ "$MODE" == "native" ]; then
-    echo -e "${GREEN}[Sistem] Yalnızca Native HMI Arayüzü (Python) başlatılıyor...${NC}"
-    echo -e "${BLUE}------------------------------------------------------${NC}"
-    cd backend && ./pzoz_venv/bin/python3 -u main.py --native
-else
-    echo -e "${GREEN}[Sistem] Ön Yüz (Vite: 3000) ve Arka Yüz (Python: 8000) eşzamanlı başlatılıyor...${NC}"
-    echo -e "${BLUE}------------------------------------------------------${NC}"
-    npm run dev
-fi
+echo -e "${GREEN}[Sistem] Ön Yüz (Vite: 3000) ve Arka Yüz (Python: 8000) eşzamanlı başlatılıyor...${NC}"
+echo -e "${BLUE}------------------------------------------------------${NC}"
+npm run dev

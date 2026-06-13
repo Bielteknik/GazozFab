@@ -47,6 +47,7 @@ export const ManualControl: React.FC<ManualControlProps> = ({
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [selectedValveId, setSelectedValveId] = useState<number | null>(null);
   const [testDuration, setTestDuration] = useState(1000);
+  const [measuredMl, setMeasuredMl] = useState<number | ''>('');
   const [gateCal, setGateCal] = useState({ target: 'inputGate' as 'inputGate' | 'outputGate', steps: 400, speed: 800 });
   const [sensorCal, setSensorCal] = useState({ id: 'input', debounceMs: 100 });
 
@@ -418,6 +419,68 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                           <RefreshCw size={14} /> GÜNCELLE
                                         </button>
                                      </div>
+                                  </div>
+                               </div>
+
+                               {/* Akış Hızı Kalibrasyon Hesaplayıcı */}
+                               <div className="pt-6 border-t border-[#2D333F] space-y-4">
+                                  <div className="flex items-center gap-2">
+                                     <Droplet size={14} className="text-orange-500" />
+                                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Akış Hızı Kalibrasyon Hesaplayıcı</h4>
+                                  </div>
+                                  
+                                  <div className="bg-[#1C2029]/30 p-4 border border-[#2D333F] rounded space-y-4">
+                                     <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                           <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">4. Ölçülen Sıvı Miktarı (ml)</label>
+                                           <input 
+                                              type="number"
+                                              value={measuredMl}
+                                              onChange={(e) => setMeasuredMl(e.target.value === '' ? '' : Number(e.target.value))}
+                                              placeholder="Örn: 5"
+                                              className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-orange-400 outline-none focus:border-orange-500/50 font-mono"
+                                           />
+                                        </div>
+                                        <div className="space-y-2">
+                                           <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Hesaplanan Akış Hızı</label>
+                                           <div className="h-8 flex items-center">
+                                              {measuredMl !== '' && Number(measuredMl) > 0 ? (
+                                                 <span className="text-xs font-mono font-bold text-emerald-400">
+                                                    {(Number(measuredMl) / testDuration).toFixed(5)} ml/ms <span className="text-gray-500">({((Number(measuredMl) / testDuration) * 1000).toFixed(1)} ml/sn)</span>
+                                                 </span>
+                                              ) : (
+                                                 <span className="text-xs text-gray-600 font-bold italic">Süre ve sıvı miktarı bekleniyor...</span>
+                                              )}
+                                           </div>
+                                        </div>
+                                     </div>
+
+                                     {measuredMl !== '' && Number(measuredMl) > 0 && selectedRecipe && (
+                                        <div className="pt-4 border-t border-[#2D333F]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                           <div className="space-y-1">
+                                              <div className="text-[9px] font-bold text-gray-500 uppercase">Önerilen Reçete Süresi ({selectedRecipe.name})</div>
+                                              <div className="text-xs font-bold text-gray-200">
+                                                 Hedef Hacim: <span className="text-orange-400">{selectedRecipe.volumeMl} ml</span> | Hesaplanan Süre: <span className="text-blue-400">{Math.round(selectedRecipe.volumeMl / (Number(measuredMl) / testDuration))} ms</span>
+                                              </div>
+                                           </div>
+                                           <button
+                                              onClick={() => {
+                                                 const flowRate = Number(measuredMl) / testDuration;
+                                                 const calculatedDuration = Math.round(selectedRecipe.volumeMl / flowRate);
+                                                 const currentValveDurations = selectedRecipe.valveDurations || {};
+                                                 const updatedDurations = {
+                                                    ...currentValveDurations,
+                                                    [selectedValveId || 0]: calculatedDuration
+                                                 };
+                                                 onUpdateRecipe(selectedRecipe.id, { valveDurations: updatedDurations });
+                                                 alert(`Vana ${selectedValveId} için ${calculatedDuration} ms süresi '${selectedRecipe.name}' reçetesine kaydedildi!`);
+                                              }}
+                                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded flex items-center gap-1.5 transition-all active:scale-95"
+                                           >
+                                              <Save size={12} /> REÇETEYE UYGULA
+                                           </button>
+                                        </div>
+                                     )}
                                   </div>
                                </div>
                             </div>
