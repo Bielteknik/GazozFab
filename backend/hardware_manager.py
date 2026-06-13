@@ -409,8 +409,20 @@ class HardwareManager:
                     print(f"[Hardware] Sending WHOAMI handshake to {resolved_port} (Attempt {attempt+1})...")
                 conn.write(b"WHOAMI\n")
                 
-                # Check response
+                # Wait for response data to arrive (max 0.5s total)
+                start_wait = time.time()
+                while time.time() - start_wait < 0.5:
+                    if conn.in_waiting > 0:
+                        break
+                    time.sleep(0.05)
+                
+                if conn.in_waiting == 0:
+                    continue # Try next attempt
+                    
+                # Process lines from buffer (non-blocking because we know data is present)
                 for _ in range(10):
+                    if conn.in_waiting == 0:
+                        break
                     line = conn.readline().decode('utf-8', errors='ignore').strip()
                     if line:
                         if verbose:
@@ -480,8 +492,6 @@ class HardwareManager:
                                     print(f"[Hardware] Expected Nano ID '{expected_nano_id}' does not match discovered '{final_id}' on {resolved_port}")
                                 return False
                             return True
-                            
-                time.sleep(0.5)
             
             if verbose:
                 print(f"[Hardware] Handshake failed on {resolved_port}. No valid ID.")

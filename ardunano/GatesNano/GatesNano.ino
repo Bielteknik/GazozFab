@@ -1,4 +1,4 @@
-// Varsayılan pin tanımları (CNC Shield V3 fallback)
+// Varsayılan pin tanımları (CNC Shield V3 fallback) New
 // Eğer Pi5'ten CONFIG gelmezse bu varsayılan değerlerle çalışır.
 int X_STEP = 5;
 int X_DIR = 2;

@@ -801,6 +801,10 @@ async def serial_polling_loop():
                 available_ports = hw.get_available_ports()
                 
                 for port in available_ports:
+                    # Skip scanning hardware UART ports in auto-discovery to avoid freezing the main thread
+                    if any(x in port.lower() for x in ["ttyama", "ttys"]):
+                        continue
+                        
                     resolved_p = hw.resolve_port_path(port)
                     # If this port is not currently connected in memory, scan it to discover its identity
                     if resolved_p not in hw.serial_conns:
