@@ -473,7 +473,9 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                                     [selectedValveId || 0]: calculatedDuration
                                                  };
                                                  onUpdateRecipe(selectedRecipe.id, { valveDurations: updatedDurations });
-                                                 alert(`Vana ${selectedValveId} için ${calculatedDuration} ms süresi '${selectedRecipe.name}' reçetesine kaydedildi!`);
+                                                 const targetValve = data.valves.find(v => v.id === selectedValveId);
+                                                 const valveName = targetValve ? targetValve.name : `Vana ${selectedValveId}`;
+                                                 alert(`${valveName} için ${calculatedDuration} ms süresi '${selectedRecipe.name}' reçetesine kaydedildi!`);
                                               }}
                                               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded flex items-center gap-1.5 transition-all active:scale-95"
                                            >
