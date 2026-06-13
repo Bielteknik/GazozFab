@@ -1,6 +1,6 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { SystemData } from '../../types/system';
+import { SystemData, Recipe } from '../../types/system';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Square, RefreshCcw, ShieldAlert, Cpu, AlertTriangle, Unlock, Shield, Target, RefreshCw, Lock, Droplet, History, ArrowUp, ArrowDown, Cylinder } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -37,7 +37,17 @@ export function Dashboard({
   const [activeMsgTab, setActiveMsgTab] = React.useState<'LOGS' | 'ALERTS'>('LOGS');
   const isAuto = data.mode === 'OTOMATİK';
   const isWashing = data.mode === 'YIKAMA';
-  const activeRecipe = data?.recipes?.find(r => r.id === data?.config?.recipeId) || data?.recipes?.[0] || { id: '', name: 'Reçete Seçilmedi', targetCount: 0, fillTimeMs: 0, description: 'Reçete Yok' };
+  const activeRecipe: Recipe = data?.recipes?.find(r => r.id === data?.config?.recipeId) || data?.recipes?.[0] || { 
+    id: '', 
+    name: 'Reçete Seçilmedi', 
+    volumeMl: 0,
+    targetCount: 0, 
+    fillTimeMs: 0, 
+    settlingTimeMs: 0,
+    dripWaitTimeMs: 0,
+    description: 'Reçete Yok',
+    valveDurations: {}
+  };
   
   const autoStateLabels: Record<string, string> = {
     BEKLEMEDE: 'Beklemede',

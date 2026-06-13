@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SystemData, SystemMode, ValveState, GateState } from '../../types/system';
+import { SystemData, SystemMode, ValveState, GateState, Recipe } from '../../types/system';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Square, RefreshCcw, ShieldAlert, Cpu, AlertTriangle, 
@@ -38,7 +38,17 @@ export function OperatorControl({
 
   const isAuto = data.mode === 'OTOMATİK';
   const isWashing = data.mode === 'YIKAMA';
-  const activeRecipe = data?.recipes?.find(r => r.id === data?.config?.recipeId) || data?.recipes?.[0] || { id: '', name: 'Reçete Seçilmedi', targetCount: 0, fillTimeMs: 0, description: 'Reçete Yok' };
+  const activeRecipe: Recipe = data?.recipes?.find(r => r.id === data?.config?.recipeId) || data?.recipes?.[0] || { 
+    id: '', 
+    name: 'Reçete Seçilmedi', 
+    volumeMl: 0,
+    targetCount: 0, 
+    fillTimeMs: 0, 
+    settlingTimeMs: 0,
+    dripWaitTimeMs: 0,
+    description: 'Reçete Yok',
+    valveDurations: {}
+  };
 
 
 
@@ -353,9 +363,9 @@ export function OperatorControl({
                              <button 
                                onClick={() => {
                                   if (valve.enabled && !isFilling) {
-                                    let valveDur = activeRecipe.fillTimeMs || 1000;
-                                    if (activeRecipe.valveDurations) {
-                                      const durVal = activeRecipe.valveDurations[valve.id] || activeRecipe.valveDurations[String(valve.id)];
+                                    let valveDur = (activeRecipe as Recipe).fillTimeMs || 1000;
+                                    if ((activeRecipe as Recipe).valveDurations) {
+                                      const durVal = (activeRecipe as Recipe).valveDurations[valve.id] || (activeRecipe.valveDurations as Record<string, number>)[String(valve.id)];
                                       if (durVal) {
                                         valveDur = durVal;
                                       }
