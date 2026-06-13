@@ -40,6 +40,24 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
 
   const activeNanoId = (selectedNano === 'ALL' || data.nanos.some(n => n.id === selectedNano)) ? selectedNano : (data.nanos?.[0]?.id || 'ALL');
 
+  const [rawSensorSignals, setRawSensorSignals] = useState<Record<string, 'ACTIVE' | 'INACTIVE'>>({});
+
+  useEffect(() => {
+    if (socket) {
+      const handleRawSignal = ({ device, pin, status }: { device: string; pin: string; status: 'ACTIVE' | 'INACTIVE' }) => {
+        const cleanedPin = pin.replace('D', '').trim();
+        setRawSensorSignals(prev => ({
+          ...prev,
+          [`${device}:${cleanedPin}`]: status
+        }));
+      };
+      socket.on('SENSOR_RAW_SIGNAL', handleRawSignal);
+      return () => {
+        socket.off('SENSOR_RAW_SIGNAL', handleRawSignal);
+      };
+    }
+  }, [socket]);
+
   const [activeTab, setActiveTab] = useState<'VALVES' | 'SENSORS' | 'GATES' | 'NANOS' | 'TERMINAL' | 'KAZAN'>('VALVES');
 
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -507,6 +525,148 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                 <span>SENSÖR EKLE</span>
               </button>
             </div>
+
+            {/* Lazer Kalibrasyon ve Test Paneli */}
+            <div className="bg-[#0D1016] border border-[#1F2937] rounded p-4 mb-4 flex flex-col space-y-4">
+              <div className="flex items-center justify-between border-b border-[#2D333F] pb-3">
+                <div className="flex items-center space-x-2">
+                  <Activity className="text-emerald-500 animate-pulse" size={16} />
+                  <h4 className="text-xs font-bold text-gray-200">LAZER SENSÖR HİZALAMA VE DEBOUNCE AYARI</h4>
+                </div>
+                <button
+                  onClick={() => socket?.emit('ACTION', { type: 'RESET_TEST_COUNTERS' })}
+                  className="flex items-center space-x-1.5 bg-blue-950/80 border border-blue-800 hover:bg-blue-900/60 text-blue-400 px-3 py-1 rounded font-bold text-[10px] transition-colors"
+                >
+                  <RefreshCw size={12} />
+                  <span>TEST SAYAÇLARINI SIFIRLA</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Giriş Lazer Sensörü Test Kartı */}
+                {(() => {
+                  const inputSensors = data.sensors.filter(s => s.type === 'INPUT');
+                  if (inputSensors.length === 0) return (
+                    <div className="bg-[#151921] border border-[#1F2937] p-4 rounded text-center text-gray-500 text-xs">
+                      Giriş sayıcı lazer sensörü tanımlanmamış.
+                    </div>
+                  );
+                  return inputSensors.map(sensor => {
+                    const cleanedPin = sensor.pin.replace('D', '').trim();
+                    const deviceKey = sensor.device === 'RASPI' ? 'RASPI' : (sensor.connectionId || 'GatesNano');
+                    const isSignalActive = rawSensorSignals[`${deviceKey}:${cleanedPin}`] === 'ACTIVE';
+
+                    return (
+                      <div key={sensor.id} className="bg-[#151921] border border-[#1F2937] p-3 rounded flex flex-col space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-gray-300">{sensor.name} (Giriş)</span>
+                            <span className="text-[9px] text-gray-500 block font-mono">Pin: {sensor.pin} | Cihaz: {deviceKey}</span>
+                          </div>
+                          {/* Live Status Badge */}
+                          <div className={cn(
+                            "px-2 py-0.5 rounded text-[9px] font-extrabold tracking-wider transition-all duration-100 flex items-center space-x-1",
+                            isSignalActive 
+                              ? "bg-green-950 border border-green-700 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" 
+                              : "bg-gray-950 border border-gray-800 text-gray-500"
+                          )}>
+                            <div className={cn("w-1.5 h-1.5 rounded-full", isSignalActive ? "bg-green-400 animate-ping" : "bg-gray-600")} />
+                            <span>{isSignalActive ? 'SİNYAL AKTİF (ENGEL)' : 'SİNYAL PASİF (AÇIK)'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4 bg-[#0D1016] border border-[#1F2937] p-3 rounded">
+                          <div className="flex flex-col items-center justify-center shrink-0 w-20 border-r border-[#1F2937] pr-3">
+                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Test Sayısı</span>
+                            <span className="text-xl font-black text-blue-400 font-mono mt-1">{data.testInputCount ?? 0}</span>
+                          </div>
+                          <div className="flex-1 flex flex-col space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] text-gray-400">Gürültü Filtresi (Debounce)</span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">{sensor.debounceMs ?? 50} ms</span>
+                            </div>
+                            <input 
+                              type="range"
+                              min="10"
+                              max="2000"
+                              step="10"
+                              value={sensor.debounceMs ?? 50}
+                              onChange={(e) => onUpdateSensor?.(sensor.id, { debounceMs: Number(e.target.value) })}
+                              className="w-full accent-emerald-500 cursor-pointer bg-gray-700 h-1 rounded outline-none"
+                            />
+                            <span className="text-[8px] text-gray-600 leading-normal">
+                              EMI parazitlerini önlemek için filtre süresi. Valf/Motor çalışırken yanlış sayma varsa arttırın.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+
+                {/* Çıkış Lazer Sensörü Test Kartı */}
+                {(() => {
+                  const outputSensors = data.sensors.filter(s => s.type === 'OUTPUT');
+                  if (outputSensors.length === 0) return (
+                    <div className="bg-[#151921] border border-[#1F2937] p-4 rounded text-center text-gray-500 text-xs">
+                      Çıkış sayıcı lazer sensörü tanımlanmamış.
+                    </div>
+                  );
+                  return outputSensors.map(sensor => {
+                    const cleanedPin = sensor.pin.replace('D', '').trim();
+                    const deviceKey = sensor.device === 'RASPI' ? 'RASPI' : (sensor.connectionId || 'GatesNano');
+                    const isSignalActive = rawSensorSignals[`${deviceKey}:${cleanedPin}`] === 'ACTIVE';
+
+                    return (
+                      <div key={sensor.id} className="bg-[#151921] border border-[#1F2937] p-3 rounded flex flex-col space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-gray-300">{sensor.name} (Çıkış)</span>
+                            <span className="text-[9px] text-gray-500 block font-mono">Pin: {sensor.pin} | Cihaz: {deviceKey}</span>
+                          </div>
+                          {/* Live Status Badge */}
+                          <div className={cn(
+                            "px-2 py-0.5 rounded text-[9px] font-extrabold tracking-wider transition-all duration-100 flex items-center space-x-1",
+                            isSignalActive 
+                              ? "bg-green-950 border border-green-700 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]" 
+                              : "bg-gray-950 border border-gray-800 text-gray-500"
+                          )}>
+                            <div className={cn("w-1.5 h-1.5 rounded-full", isSignalActive ? "bg-green-400 animate-ping" : "bg-gray-600")} />
+                            <span>{isSignalActive ? 'SİNYAL AKTİF (ENGEL)' : 'SİNYAL PASİF (AÇIK)'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4 bg-[#0D1016] border border-[#1F2937] p-3 rounded">
+                          <div className="flex flex-col items-center justify-center shrink-0 w-20 border-r border-[#1F2937] pr-3">
+                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Test Sayısı</span>
+                            <span className="text-xl font-black text-blue-400 font-mono mt-1">{data.testOutputCount ?? 0}</span>
+                          </div>
+                          <div className="flex-1 flex flex-col space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] text-gray-400">Gürültü Filtresi (Debounce)</span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">{sensor.debounceMs ?? 50} ms</span>
+                            </div>
+                            <input 
+                              type="range"
+                              min="10"
+                              max="2000"
+                              step="10"
+                              value={sensor.debounceMs ?? 50}
+                              onChange={(e) => onUpdateSensor?.(sensor.id, { debounceMs: Number(e.target.value) })}
+                              className="w-full accent-emerald-500 cursor-pointer bg-gray-700 h-1 rounded outline-none"
+                            />
+                            <span className="text-[8px] text-gray-600 leading-normal">
+                              Hizalama kalitesini test etmek için live durum ışığını izleyin; kararlı şekilde yanıp sönmelidir.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-full overflow-y-auto pr-2 pb-4">
               {data.sensors.map(sensor => (
                 <div key={sensor.id} className={cn(

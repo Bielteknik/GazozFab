@@ -211,6 +211,8 @@ void parseConfig(String payload) {
         stepsX = val.toInt();
       else if (key == "STEPS2")
         stepsY = val.toInt();
+      else if (key == "DEBOUNCE")
+        debounceDelay = val.toInt();
     }
   }
 

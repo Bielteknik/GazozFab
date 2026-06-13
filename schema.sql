@@ -148,6 +148,8 @@ CREATE TABLE IF NOT EXISTS system_state (
     autoState TEXT DEFAULT 'BEKLEMEDE',
     inputCount INTEGER DEFAULT 0,
     outputCount INTEGER DEFAULT 0,
+    testInputCount INTEGER DEFAULT 0,
+    testOutputCount INTEGER DEFAULT 0,
     tankLevelCm INTEGER DEFAULT 85,
     isWashingDone BOOLEAN DEFAULT 0,
     isWashingRequired BOOLEAN DEFAULT 0,

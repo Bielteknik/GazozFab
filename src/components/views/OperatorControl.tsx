@@ -17,7 +17,7 @@ interface OperatorControlProps {
   testValvePulse: (id: number, duration: number) => void;
   resetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
   onSelectRecipe: (id: string) => void;
-  startOperatorFill: () => void;
+  startOperatorFill: (method?: 'SEQUENTIAL' | 'CONCURRENT') => void;
 }
 
 export function OperatorControl({ 
@@ -34,6 +34,7 @@ export function OperatorControl({
   const [activeMsgTab, setActiveMsgTab] = useState<'LOGS' | 'ALERTS'>('LOGS');
   const [isFilling, setIsFilling] = useState(false);
   const [fillProgress, setFillProgress] = useState(0);
+  const [fillMethod, setFillMethod] = useState<'SEQUENTIAL' | 'CONCURRENT'>('SEQUENTIAL');
 
   const isAuto = data.mode === 'OTOMATİK';
   const isWashing = data.mode === 'YIKAMA';
@@ -52,7 +53,7 @@ export function OperatorControl({
     }
     
     // Trigger backend pulse sequence
-    startOperatorFill();
+    startOperatorFill(fillMethod);
   };
 
   // Progress effect only for UI feedback
@@ -109,6 +110,19 @@ export function OperatorControl({
             {data.inputGate.isOpen ? <Square size={14} /> : <Play size={14} />}
             <span>{data.inputGate.isOpen ? 'GİRİŞİ KAPAT' : 'GİRİŞİ BAŞLAT'}</span>
           </button>
+
+          {/* Fill Method Selection */}
+          <div className="flex flex-col">
+            <select
+              value={fillMethod}
+              onChange={(e) => setFillMethod(e.target.value as 'SEQUENTIAL' | 'CONCURRENT')}
+              disabled={isFilling}
+              className="bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs font-bold text-[#4ade80] focus:border-[#4ade80]/50 outline-none disabled:opacity-50 h-[34px] cursor-pointer"
+            >
+              <option value="SEQUENTIAL">Sıralı Doldur (Tek Tek)</option>
+              <option value="CONCURRENT">Eşzamanlı Doldur (Hepsi)</option>
+            </select>
+          </div>
 
           {/* Step 2: Manual Fill */}
           <button
@@ -337,7 +351,18 @@ export function OperatorControl({
                        return (
                           <div key={valve.id} className="flex flex-col items-center w-10">
                              <button 
-                               onClick={() => toggleValve(valve.id)}
+                               onClick={() => {
+                                  if (valve.enabled && !isFilling) {
+                                    let valveDur = activeRecipe.fillTimeMs || 1000;
+                                    if (activeRecipe.valveDurations) {
+                                      const durVal = activeRecipe.valveDurations[valve.id] || activeRecipe.valveDurations[String(valve.id)];
+                                      if (durVal) {
+                                        valveDur = durVal;
+                                      }
+                                    }
+                                    testValvePulse(valve.id, valveDur);
+                                  }
+                                }}
                                title={valve.isOpen ? 'Kapat' : 'Aç'}
                                className={cn(
                                 "w-10 h-10 rounded shadow-md border-2 relative transition-colors flex items-center justify-center hover:ring-2 ring-white/20", 

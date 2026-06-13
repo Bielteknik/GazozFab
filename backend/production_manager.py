@@ -381,3 +381,69 @@ class ProductionManager:
                 self.db.execute("UPDATE gates SET isOpen = 0 WHERE id IN ('inputGate', 'outputGate')")
             self.is_running = False
             self.broadcast_callback()
+
+    async def trigger_operator_fill(self, method='SEQUENTIAL'):
+        """Triggers semi-automatic sequential or concurrent filling in operator mode."""
+        self.log(f"DOLUM: Operatör dolum sırası başlatıldı (Yöntem: {method}).")
+        try:
+            # Get active recipe parameters
+            config_row = self.db.fetchone("SELECT * FROM system_config WHERE id = 1")
+            recipe_id = config_row["recipeId"] if config_row else ""
+            recipe = self.db.fetchone("SELECT * FROM recipes WHERE id = ?", (recipe_id,))
+            if not recipe:
+                self.log("HATA: Aktif reçete bulunamadı!")
+                return
+                
+            fill_time_ms = recipe["fillTimeMs"]
+            
+            # Fetch enabled valves
+            valves = self.db.fetchall("SELECT id, pin, device, nanoId, pulseDuration FROM valves WHERE enabled = 1")
+            if not valves:
+                self.log("UYARI: Dolum için aktif vana bulunamadı.")
+                return
+                
+            valve_actions = []
+            for v in valves:
+                duration = fill_time_ms
+                try:
+                    recipe_valve_durs = json.loads(recipe.get("valveDurations") or "{}")
+                    duration = recipe_valve_durs.get(str(v["id"])) or recipe_valve_durs.get(v["id"]) or v["pulseDuration"] or fill_time_ms
+                except:
+                    duration = v["pulseDuration"] or fill_time_ms
+                    
+                valve_actions.append({
+                    "id": v["id"],
+                    "pin": v["pin"],
+                    "duration": duration,
+                    "device": v["nanoId"] if v["device"] == "NANO" and v["nanoId"] else ("ValvesNano" if v["device"] == "NANO" else v["device"])
+                })
+                
+            if method == 'SEQUENTIAL':
+                # Sequential (tek tek) fill
+                for action in valve_actions:
+                    self.log(f"DOLUM: Vana {action['id']} ({action['pin']}) açılıyor ({action['duration']} ms)...")
+                    self.db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (action["id"],))
+                    self.broadcast_callback()
+                    
+                    # Pulse this single valve
+                    await self.hw.pulse_valve(action["id"], action["pin"], action["duration"], action["device"])
+                    
+                    self.db.execute("UPDATE valves SET isOpen = 0 WHERE id = ?", (action["id"],))
+                    self.broadcast_callback()
+            else:
+                # Concurrent (eşzamanlı) fill
+                for v in valves:
+                    self.db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (v["id"],))
+                self.broadcast_callback()
+                
+                await self.hw.pulse_valves_concurrent(valve_actions)
+                
+                self.db.execute("UPDATE valves SET isOpen = 0")
+                self.broadcast_callback()
+                
+            self.log("DOLUM: Operatör dolum sırası tamamlandı.")
+        except Exception as e:
+            self.log(f"DOLUM HATA: {e}")
+            self.hw.all_valves_off()
+            self.db.execute("UPDATE valves SET isOpen = 0")
+            self.broadcast_callback()

@@ -149,6 +149,8 @@ export interface SystemData {
   // Realtime hardware data
   inputCount: number;
   outputCount: number;
+  testInputCount?: number;
+  testOutputCount?: number;
   tankLevelCm?: number;
   
   valves: ValveState[];

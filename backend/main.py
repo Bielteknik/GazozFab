@@ -92,6 +92,15 @@ def init_db():
                         pass
             # Ensure NANO valves have relayInversion = 0 (since ValvesNano handles polarity natively)
             try:
+                conn.execute("ALTER TABLE system_state ADD COLUMN testInputCount INTEGER DEFAULT 0")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE system_state ADD COLUMN testOutputCount INTEGER DEFAULT 0")
+            except Exception:
+                pass
+                
+            try:
                 conn.execute("UPDATE valves SET relayInversion = 0 WHERE device = 'NANO'")
                 # Auto-migrate ValvesNano port from serial/UART to ttyUSB1
                 cursor = conn.cursor()
@@ -228,6 +237,8 @@ def get_full_state_sync():
         "autoState": state_row.get("autoState", "BEKLEMEDE") if state_row else "BEKLEMEDE",
         "inputCount": state_row.get("inputCount", 0) if state_row else 0,
         "outputCount": state_row.get("outputCount", 0) if state_row else 0,
+        "testInputCount": state_row.get("testInputCount", 0) if state_row else 0,
+        "testOutputCount": state_row.get("testOutputCount", 0) if state_row else 0,
         "tankLevelCm": state_row.get("tankLevelCm", 85) if state_row else 85,
         "isWashingDone": bool(state_row.get("isWashingDone", False)) if state_row else False,
         "isWashingRequired": bool(state_row.get("isWashingRequired", False)) if state_row else False,
@@ -262,6 +273,55 @@ def broadcast_callback():
 # Create Production Manager instance
 prod = ProductionManager(db, hw, broadcast_callback)
 
+def send_gates_nano_config(port=None):
+    """Sends current gates and sensors configuration (including debounce) from DB to GatesNano."""
+    try:
+        nano_id = "GatesNano"
+        gates = db.fetchall("SELECT * FROM gates WHERE nanoId = ? OR id IN ('inputGate', 'outputGate')", (nano_id,))
+        sensors = db.fetchall("SELECT * FROM sensors WHERE device = ?", (nano_id,))
+        
+        input_gate = next((g for g in gates if g["id"] == "inputGate"), None)
+        output_gate = next((g for g in gates if g["id"] == "outputGate"), None)
+        
+        sens_in = next((s for s in sensors if s["type"] == "INPUT"), None)
+        sens_out = next((s for s in sensors if s["type"] == "OUTPUT"), None)
+        
+        step1 = input_gate["pin"] if (input_gate and input_gate["pin"]) else "5"
+        dir1 = input_gate["dirPin"] if (input_gate and input_gate["dirPin"]) else "2"
+        en1 = input_gate["enablePin"] if (input_gate and input_gate["enablePin"]) else "8"
+        speed1 = input_gate["speed"] if (input_gate and input_gate["speed"]) else "1000"
+        steps1 = input_gate["stepsToOpen"] if (input_gate and input_gate["stepsToOpen"]) else "400"
+        
+        step2 = output_gate["pin"] if (output_gate and output_gate["pin"]) else "6"
+        dir2 = output_gate["dirPin"] if (output_gate and output_gate["dirPin"]) else "3"
+        en2 = output_gate["enablePin"] if (output_gate and output_gate["enablePin"]) else "8"
+        speed2 = output_gate["speed"] if (output_gate and output_gate["speed"]) else "1000"
+        steps2 = output_gate["stepsToOpen"] if (output_gate and output_gate["stepsToOpen"]) else "400"
+        
+        en = en1 if en1 else en2 if en2 else "8"
+        
+        s_in_pin = sens_in["pin"] if (sens_in and sens_in["pin"]) else "4"
+        s_out_pin = sens_out["pin"] if (sens_out and sens_out["pin"]) else "7"
+        
+        s_in_debounce = sens_in["debounceMs"] if (sens_in and sens_in["debounceMs"] is not None) else 50
+        s_out_debounce = sens_out["debounceMs"] if (sens_out and sens_out["debounceMs"] is not None) else 50
+        debounce = max(s_in_debounce, s_out_debounce)
+        
+        config_cmd = f"CONFIG:STEP1={step1}:DIR1={dir1}:STEP2={step2}:DIR2={dir2}:EN={en}:SENS_IN={s_in_pin}:SENS_OUT={s_out_pin}:SPEED1={speed1}:SPEED2={speed2}:STEPS1={steps1}:STEPS2={steps2}:DEBOUNCE={debounce}"
+        
+        if not port:
+            port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == "GatesNano"), None)
+            
+        target_port = port if port else "GatesNano"
+        hw.send_command(config_cmd, target_port=target_port)
+        print(f"[Hardware Config] Sent dynamic configuration to GatesNano on {target_port}: {config_cmd}")
+        add_log(f"GatesNano için dinamik yapılandırma gönderildi: {config_cmd}")
+        
+        # Query initial gate limit states
+        hw.send_command("GET_LIMITS", target_port=target_port)
+    except Exception as e:
+        print(f"[Hardware Config Error] Failed to send GatesNano config: {e}")
+
 def reload_hardware_config():
     """Reload all hardware config from database and apply to HardwareManager."""
     try:
@@ -269,6 +329,9 @@ def reload_hardware_config():
         sensors = db.fetchall("SELECT * FROM sensors")
         hw.apply_config(nanos, sensors)
         print("[Hardware] Configuration successfully reloaded from database.")
+        
+        # Instantly apply configurations to GatesNano if connected
+        send_gates_nano_config()
     except Exception as e:
         print(f"[Hardware Reload Error] {e}")
 
@@ -303,42 +366,7 @@ def handle_nano_discovery(nano_id, name, port, baudrate):
             
         # Send dynamic config to GatesNano on discovery
         if nano_id == "GatesNano":
-            gates = db.fetchall("SELECT * FROM gates WHERE nanoId = ? OR id IN ('inputGate', 'outputGate')", (nano_id,))
-            sensors = db.fetchall("SELECT * FROM sensors WHERE device = ?", (nano_id,))
-            
-            input_gate = next((g for g in gates if g["id"] == "inputGate"), None)
-            output_gate = next((g for g in gates if g["id"] == "outputGate"), None)
-            
-            sens_in = next((s for s in sensors if s["type"] == "INPUT"), None)
-            sens_out = next((s for s in sensors if s["type"] == "OUTPUT"), None)
-            
-            step1 = input_gate["pin"] if (input_gate and input_gate["pin"]) else "5"
-            dir1 = input_gate["dirPin"] if (input_gate and input_gate["dirPin"]) else "2"
-            en1 = input_gate["enablePin"] if (input_gate and input_gate["enablePin"]) else "8"
-            speed1 = input_gate["speed"] if (input_gate and input_gate["speed"]) else "1000"
-            steps1 = input_gate["stepsToOpen"] if (input_gate and input_gate["stepsToOpen"]) else "400"
-            
-            step2 = output_gate["pin"] if (output_gate and output_gate["pin"]) else "6"
-            dir2 = output_gate["dirPin"] if (output_gate and output_gate["dirPin"]) else "3"
-            en2 = output_gate["enablePin"] if (output_gate and output_gate["enablePin"]) else "8"
-            speed2 = output_gate["speed"] if (output_gate and output_gate["speed"]) else "1000"
-            steps2 = output_gate["stepsToOpen"] if (output_gate and output_gate["stepsToOpen"]) else "400"
-            
-            en = en1 if en1 else en2 if en2 else "8"
-            
-            s_in_pin = sens_in["pin"] if (sens_in and sens_in["pin"]) else "12"
-            s_out_pin = sens_out["pin"] if (sens_out and sens_out["pin"]) else "13"
-            
-            config_cmd = f"CONFIG:STEP1={step1}:DIR1={dir1}:STEP2={step2}:DIR2={dir2}:EN={en}:SENS_IN={s_in_pin}:SENS_OUT={s_out_pin}:SPEED1={speed1}:SPEED2={speed2}:STEPS1={steps1}:STEPS2={steps2}"
-            
-            target_port = port if port else nano_id
-            hw.send_command(config_cmd, target_port=target_port)
-            print(f"[Hardware Config] Sent dynamic configuration to {nano_id} on {target_port}: {config_cmd}")
-            add_log(f"{nano_id} için dinamik yapılandırma gönderildi: {config_cmd}")
-            
-            # Query initial gate limit states on discovery
-            hw.send_command("GET_LIMITS", target_port=target_port)
-            print(f"[Hardware Config] Queried initial limit switch states from {nano_id}")
+            send_gates_nano_config(port)
             
         broadcast_callback()
     except Exception as e:
@@ -354,15 +382,26 @@ def handle_nano_disconnect(nano_id):
     except Exception as e:
         print(f"[DB Disconnect Error] {e}")
 
+# Keep track of last sensor trigger times to debounce EMI noise
+last_sensor_triggers = {"IN": 0.0, "OUT": 0.0}
+
 # Sensor event callback from hardware
 def handle_sensor_event(device_id, sensor_type):
+    global last_sensor_triggers
+    now = time.time()
+    if now - last_sensor_triggers.get(sensor_type, 0.0) < 0.3:
+        return
+    last_sensor_triggers[sensor_type] = now
+
     # Retrieve current count from DB
     key = "inputCount" if sensor_type == "IN" else "outputCount"
+    test_key = "testInputCount" if sensor_type == "IN" else "testOutputCount"
     state_row = db.fetchone("SELECT * FROM system_state WHERE id = 1")
     if state_row:
         val = (state_row[key] or 0) + 1
-        db.execute(f"UPDATE system_state SET {key} = ? WHERE id = 1", (val,))
-        add_log(f"{'Giriş' if sensor_type == 'IN' else 'Çıkış'} Lazeri algılandı. Yeni Sayı: {val}")
+        test_val = (state_row[test_key] or 0) + 1
+        db.execute(f"UPDATE system_state SET {key} = ?, {test_key} = ? WHERE id = 1", (val, test_val))
+        add_log(f"{'Giriş' if sensor_type == 'IN' else 'Çıkış'} Lazeri algılandı. Yeni Sayı: {val} (Test: {test_val})")
         broadcast_callback()
 
 # Distance event callback from hardware (HC-SR04)
@@ -384,12 +423,20 @@ def handle_limit_switch_event(gate_id, is_open):
 def handle_terminal_output(device_id, data):
     asyncio.create_task(sio.emit('TERMINAL_OUTPUT', {'nanoId': device_id, 'data': data}))
 
+def handle_raw_pin_event(device_id, pin_str, status_str):
+    asyncio.create_task(sio.emit('SENSOR_RAW_SIGNAL', {
+        'device': device_id,
+        'pin': pin_str,
+        'status': status_str
+    }))
+
 hw.on_sensor_event = handle_sensor_event
 hw.on_distance_read = handle_distance_read
 hw.on_limit_switch_event = handle_limit_switch_event
 hw.on_nano_discovered = handle_nano_discovery
 hw.on_nano_disconnected = handle_nano_disconnect
 hw.on_terminal_output = handle_terminal_output
+hw.on_raw_pin_event = handle_raw_pin_event
 
 # Socket event: Connect
 @sio.event
@@ -591,6 +638,10 @@ async def handle_action(sid, data):
         db.execute("UPDATE sensors SET enabled = 1 - enabled WHERE id = ?", (sid_val,))
         add_log(f"Sensör {sid_val} aktiflik durumu değiştirildi.")
 
+    elif action_type == 'RESET_TEST_COUNTERS':
+        db.execute("UPDATE system_state SET testInputCount = 0, testOutputCount = 0 WHERE id = 1")
+        add_log("Sensör test sayaçları sıfırlandı.")
+
     elif action_type == 'ADD_SENSOR':
         s = payload.get('sensor', {})
         
@@ -726,12 +777,21 @@ async def handle_action(sid, data):
             target_device = row['nanoId'] if row['device'] == 'NANO' else row['device']
             if not target_device or target_device == 'NANO':
                 target_device = 'ValvesNano'
-            asyncio.create_task(hw.pulse_valve(vid, row['pin'], duration, target_device))
+            async def run_pulse():
+                try:
+                    db.execute("UPDATE valves SET isOpen = 1 WHERE id = ?", (vid,))
+                    broadcast_callback()
+                    await hw.pulse_valve(vid, row['pin'], duration, target_device)
+                finally:
+                    db.execute("UPDATE valves SET isOpen = 0 WHERE id = ?", (vid,))
+                    broadcast_callback()
+            asyncio.create_task(run_pulse())
             add_log(f"Manuel valf darbe testi tetiklendi -> Valf: {vid}, Süre: {duration} ms")
         
     elif action_type == 'START_OPERATOR_FILL':
-        asyncio.create_task(prod._trigger_filling_valves())
-        add_log("Operatör manuel dolum sırası tetiklendi.")
+        method = payload.get('method', 'SEQUENTIAL')
+        asyncio.create_task(prod.trigger_operator_fill(method))
+        add_log(f"Operatör manuel dolum sırası tetiklendi (Yöntem: {method}).")
         
     elif action_type == 'RESET_GATES':
         target_port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == "GatesNano"), None)
@@ -769,48 +829,52 @@ last_port_scan_time = 0
 # Background serial read polling loop
 async def serial_polling_loop():
     global last_port_scan_time
+    last_db_sync_time = 0.0
     while True:
         try:
             hw.update_serial_read()
             
-            # Sync connection statuses in DB
-            nanos = db.fetchall("SELECT * FROM nanos")
             now = time.time()
-            
-            # 1. Self-healing for configured Nanos
-            for n in nanos:
-                port = n["port"]
-                if port:
-                    is_online = hw.is_port_online(port, expected_nano_id=n["id"])
-                    status_str = "ONLINE" if is_online else "OFFLINE"
-                    if n["status"] != status_str:
-                        db.execute("UPDATE nanos SET status = ? WHERE id = ?", (status_str, n["id"]))
-                        add_log(f"Denetleyici ({n['id']}) bağlantı durumu değişti: {status_str}")
-                        broadcast_callback()
-                        
-                    # Self-healing auto reconnect with 10 seconds cooldown
-                    if not is_online and not str(port).startswith("TCP:"):
-                        last_attempt = last_reconnect_attempts.get(port, 0)
-                        if now - last_attempt > 10.0:
-                            last_reconnect_attempts[port] = now
-                            hw.connect_to_port(port, n["baudRate"], expected_nano_id=n["id"])
-            
-            # 2. Auto-discovery for newly plugged-in or swapped ports
-            if now - last_port_scan_time > 10.0:
-                last_port_scan_time = now
-                available_ports = hw.get_available_ports()
+            if now - last_db_sync_time > 2.0:
+                last_db_sync_time = now
                 
-                for port in available_ports:
-                    # Skip scanning hardware UART ports in auto-discovery to avoid freezing the main thread
-                    if any(x in port.lower() for x in ["ttyama", "ttys"]):
-                        continue
-                        
-                    resolved_p = hw.resolve_port_path(port)
-                    # If this port is not currently connected in memory, scan it to discover its identity
-                    if resolved_p not in hw.serial_conns:
-                        connected = hw.connect_to_port(port, baudrate=115200, verbose=False)
-                        if not connected:
-                            hw.connect_to_port(port, baudrate=9600, verbose=False)
+                # Sync connection statuses in DB
+                nanos = db.fetchall("SELECT * FROM nanos")
+                
+                # 1. Self-healing for configured Nanos
+                for n in nanos:
+                    port = n["port"]
+                    if port:
+                        is_online = hw.is_port_online(port, expected_nano_id=n["id"])
+                        status_str = "ONLINE" if is_online else "OFFLINE"
+                        if n["status"] != status_str:
+                            db.execute("UPDATE nanos SET status = ? WHERE id = ?", (status_str, n["id"]))
+                            add_log(f"Denetleyici ({n['id']}) bağlantı durumu değişti: {status_str}")
+                            broadcast_callback()
+                            
+                        # Self-healing auto reconnect with 10 seconds cooldown
+                        if not is_online and not str(port).startswith("TCP:"):
+                            last_attempt = last_reconnect_attempts.get(port, 0)
+                            if now - last_attempt > 10.0:
+                                last_reconnect_attempts[port] = now
+                                hw.connect_to_port(port, n["baudRate"], expected_nano_id=n["id"])
+                
+                # 2. Auto-discovery for newly plugged-in or swapped ports
+                if now - last_port_scan_time > 10.0:
+                    last_port_scan_time = now
+                    available_ports = hw.get_available_ports()
+                    
+                    for port in available_ports:
+                        # Skip scanning hardware UART ports in auto-discovery to avoid freezing the main thread
+                        if any(x in port.lower() for x in ["ttyama", "ttys"]):
+                            continue
+                            
+                        resolved_p = hw.resolve_port_path(port)
+                        # If this port is not currently connected in memory, scan it to discover its identity
+                        if resolved_p not in hw.serial_conns:
+                            connected = hw.connect_to_port(port, baudrate=115200, verbose=False)
+                            if not connected:
+                                hw.connect_to_port(port, baudrate=9600, verbose=False)
         except Exception as e:
             pass
         await asyncio.sleep(0.1) # Fast poll to keep serial responsive

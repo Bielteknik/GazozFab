@@ -81,34 +81,40 @@ class HardwareManager:
         # Format: EVENT:PIN:D2:ACTIVE or EVENT:PIN:D12:ACTIVE
         if "EVENT:PIN:" in clean_line:
             parts = clean_line.split(":")
-            if len(parts) >= 4 and parts[3].strip() == "ACTIVE":
-                pin_str = parts[2].strip() # e.g. "D12"
+            if len(parts) >= 4:
+                pin_str = parts[2].strip() # e.g. "D4"
+                status_str = parts[3].strip() # "ACTIVE" or "INACTIVE"
                 norm_pin = pin_str.replace("D", "").strip()
                 
-                matched_sensor = None
-                if self.sensor_config:
-                    for s in self.sensor_config:
-                        s_pin = str(s.get("pin", "")).replace("D", "").strip()
-                        if s_pin == norm_pin:
-                            matched_sensor = s
-                            break
+                # Call raw pin event callback if set
+                if getattr(self, "on_raw_pin_event", None):
+                    self.on_raw_pin_event(device_id, pin_str, status_str)
                 
-                if matched_sensor:
-                    s_type = matched_sensor.get("type") # 'INPUT' or 'OUTPUT'
-                    if s_type == "INPUT":
-                        if self.on_sensor_event:
-                            self.on_sensor_event(device_id, "IN")
-                    elif s_type == "OUTPUT":
-                        if self.on_sensor_event:
-                            self.on_sensor_event(device_id, "OUT")
-                else:
-                    # Fallback to legacy hardcoded mapping if s_pin doesn't match dynamic config
-                    if norm_pin == "2" or norm_pin == "12":
-                        if self.on_sensor_event:
-                            self.on_sensor_event(device_id, "IN")
-                    elif norm_pin == "3" or norm_pin == "13":
-                        if self.on_sensor_event:
-                            self.on_sensor_event(device_id, "OUT")
+                if status_str == "ACTIVE":
+                    matched_sensor = None
+                    if self.sensor_config:
+                        for s in self.sensor_config:
+                            s_pin = str(s.get("pin", "")).replace("D", "").strip()
+                            if s_pin == norm_pin:
+                                matched_sensor = s
+                                break
+                    
+                    if matched_sensor:
+                        s_type = matched_sensor.get("type") # 'INPUT' or 'OUTPUT'
+                        if s_type == "INPUT":
+                            if self.on_sensor_event:
+                                self.on_sensor_event(device_id, "IN")
+                        elif s_type == "OUTPUT":
+                            if self.on_sensor_event:
+                                self.on_sensor_event(device_id, "OUT")
+                    else:
+                        # Fallback to legacy hardcoded mapping if s_pin doesn't match dynamic config
+                        if norm_pin == "2" or norm_pin == "12":
+                            if self.on_sensor_event:
+                                self.on_sensor_event(device_id, "IN")
+                        elif norm_pin == "3" or norm_pin == "13":
+                            if self.on_sensor_event:
+                                self.on_sensor_event(device_id, "OUT")
                     
         # 2. Check Ultrasonic Distance replies
         # Format: EVENT:HCSR04:240 (mm) or EVENT:HCSR04:D7:D8:240
@@ -953,6 +959,11 @@ class HardwareManager:
                         
                     if port not in self.serial_buffers:
                         self.serial_buffers[port] = bytearray()
+                    
+                    # Safety check: Clear buffer if it grows too large from serial noise/garbage
+                    if len(self.serial_buffers[port]) > 4096:
+                        self.serial_buffers[port] = bytearray()
+                        
                     self.serial_buffers[port].extend(data)
                     
                     while b'\n' in self.serial_buffers[port]:

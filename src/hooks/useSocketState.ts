@@ -363,7 +363,7 @@ export function useSocketState() {
       emitAction('SET_MODE', { mode: 'BEKLEMEDE' });
       if (!isConnected) setData(prev => ({ ...prev, mode: 'BEKLEMEDE' }));
     },
-    startOperatorFill: () => emitAction('START_OPERATOR_FILL'),
+    startOperatorFill: (method?: 'SEQUENTIAL' | 'CONCURRENT') => emitAction('START_OPERATOR_FILL', { method }),
     resetGates: () => emitAction('RESET_GATES'),
     systemReset: () => {
       emitAction('SYSTEM_RESET');
