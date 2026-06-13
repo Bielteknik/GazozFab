@@ -781,7 +781,7 @@ async def serial_polling_loop():
             for n in nanos:
                 port = n["port"]
                 if port:
-                    is_online = hw.is_port_online(port)
+                    is_online = hw.is_port_online(port, expected_nano_id=n["id"])
                     status_str = "ONLINE" if is_online else "OFFLINE"
                     if n["status"] != status_str:
                         db.execute("UPDATE nanos SET status = ? WHERE id = ?", (status_str, n["id"]))
@@ -793,7 +793,7 @@ async def serial_polling_loop():
                         last_attempt = last_reconnect_attempts.get(port, 0)
                         if now - last_attempt > 10.0:
                             last_reconnect_attempts[port] = now
-                            hw.connect_to_port(port, n["baudRate"])
+                            hw.connect_to_port(port, n["baudRate"], expected_nano_id=n["id"])
             
             # 2. Auto-discovery for newly plugged-in or swapped ports
             if now - last_port_scan_time > 10.0:

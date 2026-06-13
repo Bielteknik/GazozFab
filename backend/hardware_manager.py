@@ -9,6 +9,7 @@ class HardwareManager:
     def __init__(self):
         self.serial_conns = {}    # {port: SerialInstance}
         self.port_to_id_map = {}   # {port: 'GatesNano' or 'ValvesNano'}
+        self.serial_buffers = {}   # {port: bytearray} for non-blocking reading
         self.network_conns = {}    # {nano_id: (reader, writer)}
         self.on_sensor_event = None # callback(device_id, sensor_type) e.g. callback("GatesNano", "IN")
         self.on_distance_read = None # callback(distance_cm)
@@ -270,7 +271,7 @@ class HardwareManager:
             except Exception:
                 pass
 
-    def connect_to_port(self, port, baudrate=115200, verbose=True):
+    def connect_to_port(self, port, baudrate=115200, verbose=True, expected_nano_id=None):
         """Attempts to open port, reads startup broadcast, or sends WHOAMI to confirm identity."""
         if not port:
             return False
@@ -282,6 +283,14 @@ class HardwareManager:
                 conn = self.serial_conns[resolved_port]
                 if conn.is_open:
                     if conn.baudrate == baudrate:
+                        if expected_nano_id:
+                            actual_id = self.port_to_id_map.get(resolved_port)
+                            if actual_id == expected_nano_id:
+                                return True
+                            else:
+                                if verbose:
+                                    print(f"[Hardware] Port {resolved_port} is already connected to '{actual_id}', not '{expected_nano_id}'")
+                                return False
                         return True
                     else:
                         if verbose:
@@ -383,6 +392,11 @@ class HardwareManager:
                 
                 if getattr(self, "on_nano_discovered", None):
                     self.on_nano_discovered(final_id, matched_name, resolved_port, baudrate)
+                
+                if expected_nano_id and final_id != expected_nano_id:
+                    if verbose:
+                        print(f"[Hardware] Expected Nano ID '{expected_nano_id}' does not match discovered '{final_id}' on {resolved_port}")
+                    return False
                 return True
             
             # No startup broadcast found, clear buffer and send WHOAMI query
@@ -460,6 +474,11 @@ class HardwareManager:
                             
                             if getattr(self, "on_nano_discovered", None):
                                 self.on_nano_discovered(final_id, matched_name, resolved_port, baudrate)
+                            
+                            if expected_nano_id and final_id != expected_nano_id:
+                                if verbose:
+                                    print(f"[Hardware] Expected Nano ID '{expected_nano_id}' does not match discovered '{final_id}' on {resolved_port}")
+                                return False
                             return True
                             
                 time.sleep(0.5)
@@ -483,7 +502,7 @@ class HardwareManager:
                     return True
                 continue
                 
-            if self.connect_to_port(port):
+            if self.connect_to_port(port, expected_nano_id=target_id):
                 if self.port_to_id_map.get(resolved_port) == target_id:
                     return True
                 else:
@@ -494,15 +513,19 @@ class HardwareManager:
                         del self.port_to_id_map[resolved_port]
         return False
 
-    def is_port_online(self, port):
+    def is_port_online(self, port, expected_nano_id=None):
         if not port:
             return False
         # Check if port matches a connected TCP Nano ID
         if port in self.network_conns:
+            if expected_nano_id and port != expected_nano_id:
+                return False
             return True
         # Or check if port starts with "TCP:" and matches a socket connection's address
         if str(port).startswith("TCP:"):
             for nid, (reader, writer) in list(self.network_conns.items()):
+                if expected_nano_id and nid != expected_nano_id:
+                    continue
                 addr = writer.get_extra_info('peername')
                 if addr:
                     conn_port_str = f"TCP:{addr[0]}:{addr[1]}"
@@ -512,7 +535,13 @@ class HardwareManager:
             
         resolved_port = self.resolve_port_path(port)
         conn = self.serial_conns.get(resolved_port)
-        return conn is not None and conn.is_open
+        if conn is None or not conn.is_open:
+            return False
+        if expected_nano_id:
+            actual_id = self.port_to_id_map.get(resolved_port)
+            if actual_id != expected_nano_id:
+                return False
+        return True
 
     def send_command(self, cmd, target_port=None):
         """Write command string to port (or broadcast to all if target_port is None)."""
@@ -610,7 +639,7 @@ class HardwareManager:
             port = n.get("port")
             baud = n.get("baudRate", 115200)
             if port:
-                self.connect_to_port(port, baud)
+                self.connect_to_port(port, baud, expected_nano_id=n.get("id"))
                 
         # Setup local Raspberry Pi GPIO if needed
         self.setup_pi_gpio(sensors)
@@ -905,43 +934,96 @@ class HardwareManager:
         for port, conn in list(self.serial_conns.items()):
             try:
                 if not conn.is_open: continue
-                while conn.in_waiting > 0:
-                    line_bytes = conn.readline()
-                    if not line_bytes: break
-                    line = line_bytes.decode('utf-8', errors='ignore').strip()
-                    if not line: continue
+                
+                waiting = conn.in_waiting
+                if waiting > 0:
+                    data = conn.read(waiting)
+                    if not data:
+                        continue
+                        
+                    if port not in self.serial_buffers:
+                        self.serial_buffers[port] = bytearray()
+                    self.serial_buffers[port].extend(data)
                     
-                    device_id = self.port_to_id_map.get(port)
-                    # Print raw outputs to server terminal for diagnosis
-                    print(f"[Serial Nano -> {device_id}] {line}")
-                    
-                    if getattr(self, "on_terminal_output", None):
-                        self.on_terminal_output(device_id or "UNKNOWN", f"RX: {line}")
-                    
-                    # 1. Check Handshake Query reply
-                    if line.startswith("ID:"):
-                        clean_id = line.replace("ID:", "").strip()
-                        if clean_id in ["Sensors", "Valfler"]:
-                            mapped = "GatesNano" if clean_id == "Sensors" else "ValvesNano"
-                            self.port_to_id_map[port] = mapped
-                            print(f"[Hardware] Identified {port} as {mapped}")
-                            device_id = mapped
+                    while b'\n' in self.serial_buffers[port]:
+                        line_bytes, remaining = self.serial_buffers[port].split(b'\n', 1)
+                        self.serial_buffers[port] = bytearray(remaining)
+                        
+                        line = line_bytes.decode('utf-8', errors='ignore').strip()
+                        if not line:
+                            continue
                             
-                    # Process via standard incoming line processor
-                    if device_id:
-                        self.process_incoming_line(device_id, line)
+                        device_id = self.port_to_id_map.get(port)
+                        # Print raw outputs to server terminal for diagnosis
+                        print(f"[Serial Nano -> {device_id}] {line}")
+                        
+                        if getattr(self, "on_terminal_output", None):
+                            self.on_terminal_output(device_id or "UNKNOWN", f"RX: {line}")
+                        
+                        # 1. Check Handshake Query reply
+                        if line.startswith("ID:") or "ID:" in line:
+                            clean_line = line.strip()
+                            matched_id = None
+                            
+                            delimiters = [';', ',', '|']
+                            parts = [clean_line]
+                            for d in delimiters:
+                                if d in clean_line:
+                                    parts = clean_line.split(d)
+                                    break
+                            for p_part in parts:
+                                p_clean = p_part.strip()
+                                if p_clean.startswith("ID:"):
+                                    matched_id = p_clean[3:].strip()
+                                    break
+                            
+                            if not matched_id and clean_line.startswith("ID:"):
+                                matched_id = clean_line[3:].strip()
+                                
+                            if matched_id:
+                                legacy_map = {
+                                    "Sensors": "GatesNano",
+                                    "Valfler": "ValvesNano",
+                                    "GatesNano": "GatesNano",
+                                    "ValvesNano": "ValvesNano"
+                                }
+                                mapped = legacy_map.get(matched_id, matched_id)
+                                self.port_to_id_map[port] = mapped
+                                print(f"[Hardware] Identified {port} as {mapped}")
+                                device_id = mapped
+                                
+                        # Process via standard incoming line processor
+                        if device_id:
+                            self.process_incoming_line(device_id, line)
             except Exception as e:
                 pass
 
     def cleanup(self):
         self.polling_active = False
+        
+        # Close serial connections
         for port, conn in list(self.serial_conns.items()):
             try:
                 conn.close()
             except: pass
         self.serial_conns.clear()
         self.port_to_id_map.clear()
+        self.serial_buffers.clear()
         
+        # Close active TCP connection sockets
+        for nid, conns in list(self.network_conns.items()):
+            try:
+                conns[1].close()
+            except: pass
+        self.network_conns.clear()
+        
+        # Close UDP discovery transport
+        if hasattr(self, 'udp_transport') and self.udp_transport:
+            try:
+                self.udp_transport.close()
+                self.udp_transport = None
+            except: pass
+            
         try:
             import lgpio
             if self.lgpio_h:
@@ -949,4 +1031,4 @@ class HardwareManager:
                 self.lgpio_h = None
         except:
             pass
-        print("[Hardware] Cleaned up serial and GPIO connections.")
+        print("[Hardware] Cleaned up serial, TCP, UDP and GPIO connections.")

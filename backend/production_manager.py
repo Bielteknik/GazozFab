@@ -12,36 +12,49 @@ class ProductionManager:
 
     async def run_loop(self):
         """Monitor current system mode and spawn/kill active production cycles."""
-        while True:
+        try:
+            while True:
+                try:
+                    state_row = self.db.fetchone("SELECT mode FROM system_state WHERE id = 1")
+                    mode = state_row["mode"] if state_row else "BEKLEMEDE"
+                    
+                    if mode == "OTOMATİK":
+                        if not self.is_running:
+                            self.is_running = True
+                            self.step_task = asyncio.create_task(self.auto_production_cycle())
+                    elif mode == "YIKAMA":
+                        if not self.is_running:
+                            self.is_running = True
+                            self.step_task = asyncio.create_task(self.washing_cycle())
+                    elif mode == "TAHLIYE":
+                        if not self.is_running:
+                            self.is_running = True
+                            self.step_task = asyncio.create_task(self.flush_cycle())
+                    else:
+                        # BEKLEMEDE or ARIZA
+                        if self.is_running:
+                            self.is_running = False
+                            if self.step_task:
+                                self.step_task.cancel()
+                                self.step_task = None
+                            # Safety: Turn all valves off on exit
+                            self.hw.all_valves_off()
+                            
+                except Exception as e:
+                    print(f"[Production Loop Error] {e}")
+                await asyncio.sleep(0.5)
+        finally:
+            self.is_running = False
+            if self.step_task:
+                try:
+                    self.step_task.cancel()
+                except Exception:
+                    pass
+                self.step_task = None
             try:
-                state_row = self.db.fetchone("SELECT mode FROM system_state WHERE id = 1")
-                mode = state_row["mode"] if state_row else "BEKLEMEDE"
-                
-                if mode == "OTOMATİK":
-                    if not self.is_running:
-                        self.is_running = True
-                        self.step_task = asyncio.create_task(self.auto_production_cycle())
-                elif mode == "YIKAMA":
-                    if not self.is_running:
-                        self.is_running = True
-                        self.step_task = asyncio.create_task(self.washing_cycle())
-                elif mode == "TAHLIYE":
-                    if not self.is_running:
-                        self.is_running = True
-                        self.step_task = asyncio.create_task(self.flush_cycle())
-                else:
-                    # BEKLEMEDE or ARIZA
-                    if self.is_running:
-                        self.is_running = False
-                        if self.step_task:
-                            self.step_task.cancel()
-                            self.step_task = None
-                        # Safety: Turn all valves off on exit
-                        self.hw.all_valves_off()
-                        
-            except Exception as e:
-                print(f"[Production Loop Error] {e}")
-            await asyncio.sleep(0.5)
+                self.hw.all_valves_off()
+            except Exception:
+                pass
 
     def log(self, message):
         """Append log to terminal_logs table and trigger broadcast update."""
