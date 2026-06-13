@@ -89,50 +89,62 @@ export function OperatorControl({
     <div className="flex flex-col h-full space-y-4 overflow-hidden">
       
       {/* Top action bar - Operator Control version */}
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-3">
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col">
-            <h2 className="text-sm font-bold tracking-tight text-white flex items-center">
-              <UserCheck className="mr-2 text-blue-400" size={14} /> OPERATÖR KONTROLÜ AKTİF
-            </h2>
-            <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
-              {isFilling ? 'Şerbet Dolumu Yapılıyor' : 'Tüm süreç manuel tetikleme bekliyor'} 
-              {isFilling && <span className="ml-2 text-blue-400 font-bold">({Math.round(fillProgress)}%)</span>}
-            </p>
+      <div className="flex flex-col bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-3 w-full">
+        {/* Row 1: Header Info & Exit Mode */}
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col">
+              <h2 className="text-sm font-bold tracking-tight text-white flex items-center">
+                <UserCheck className="mr-2 text-blue-400" size={14} /> OPERATÖR KONTROLÜ AKTİF
+              </h2>
+              <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
+                {isFilling ? 'Şerbet Dolumu Yapılıyor' : 'Tüm süreç manuel tetikleme bekliyor'} 
+                {isFilling && <span className="ml-2 text-blue-400 font-bold">({Math.round(fillProgress)}%)</span>}
+              </p>
+            </div>
+            <div className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              Yarı-Otomatik Mod
+            </div>
           </div>
-
-          <div className="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            Yarı-Otomatik Mod
-          </div>
+          
+          <button
+            onClick={() => setMode('BEKLEMEDE')}
+            className="flex items-center justify-center gap-1.5 bg-red-900/40 border border-red-800 hover:bg-red-900 text-red-500 px-3 py-1.5 rounded font-bold text-[10px] transition-all active:scale-95 whitespace-nowrap"
+          >
+            <ShieldAlert size={12} />
+            <span>MODDAN ÇIK</span>
+          </button>
         </div>
-        
-        <div className="flex flex-wrap gap-2 w-full xl:w-auto">
+
+        {/* Divider */}
+        <div className="h-px bg-gray-800 w-full" />
+
+        {/* Row 2: Action Buttons */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full">
           {/* Step 1: Entry Gate */}
           <button
             onClick={() => operateGate('inputGate', data.inputGate.isOpen ? 0 : 400)}
             className={cn(
-              "flex-1 xl:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[11px] transition-all border whitespace-nowrap active:scale-95",
+              "flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all border whitespace-nowrap active:scale-95",
               data.inputGate.isOpen 
                 ? "bg-red-900/20 border-red-800 text-red-500 hover:bg-red-900/40" 
                 : "bg-emerald-900/40 border-emerald-800 text-emerald-400 hover:bg-emerald-900"
             )}
           >
-            {data.inputGate.isOpen ? <Square size={14} /> : <Play size={14} />}
-            <span>{data.inputGate.isOpen ? 'GİRİŞİ KAPAT' : 'GİRİŞİ BAŞLAT'}</span>
+            {data.inputGate.isOpen ? <Square size={12} /> : <Play size={12} />}
+            <span>{data.inputGate.isOpen ? '1. GİRİŞİ KAPAT' : '1. GİRİŞİ BAŞLAT'}</span>
           </button>
 
           {/* Fill Method Selection */}
-          <div className="flex flex-col">
-            <select
-              value={fillMethod}
-              onChange={(e) => setFillMethod(e.target.value as 'SEQUENTIAL' | 'CONCURRENT')}
-              disabled={isFilling}
-              className="bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-xs font-bold text-[#4ade80] focus:border-[#4ade80]/50 outline-none disabled:opacity-50 h-[34px] cursor-pointer"
-            >
-              <option value="SEQUENTIAL">Sıralı Doldur (Tek Tek)</option>
-              <option value="CONCURRENT">Eşzamanlı Doldur (Hepsi)</option>
-            </select>
-          </div>
+          <select
+            value={fillMethod}
+            onChange={(e) => setFillMethod(e.target.value as 'SEQUENTIAL' | 'CONCURRENT')}
+            disabled={isFilling}
+            className="bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-[10px] font-bold text-[#4ade80] focus:border-[#4ade80]/50 outline-none disabled:opacity-50 h-[34px] cursor-pointer w-full text-center"
+          >
+            <option value="SEQUENTIAL">Sıralı Doldur (Tek Tek)</option>
+            <option value="CONCURRENT">Eşzamanlı Doldur (Hepsi)</option>
+          </select>
 
           {/* Step 2: Manual Fill */}
           <button
@@ -146,7 +158,7 @@ export function OperatorControl({
                   : 'Dolum işlemini başlat'
             }
             className={cn(
-              "flex-1 xl:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded font-bold text-[11px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden",
+              "flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden",
               isFilling 
                 ? "bg-blue-600/20 border-blue-500 text-blue-400" 
                 : (data.inputGate.isOpen || data.outputGate.isOpen)
@@ -161,13 +173,13 @@ export function OperatorControl({
                 animate={{ width: `${fillProgress}%` }}
               />
             )}
-            <Droplet size={14} className={cn(isFilling && "animate-bounce")} />
+            <Droplet size={12} className={cn(isFilling && "animate-bounce")} />
             <span>
               {isFilling 
-                ? 'DOLUM YAPILIYOR...' 
+                ? '2. DOLUM YAPILIYOR...' 
                 : (data.inputGate.isOpen || data.outputGate.isOpen) 
-                  ? 'KİLİTLER AÇIK (BLOKE)' 
-                  : 'DOLUMU BAŞLAT'}
+                  ? '2. KİLİTLER AÇIK (BLOKE)' 
+                  : '2. DOLUMU BAŞLAT'}
             </span>
           </button>
 
@@ -175,25 +187,14 @@ export function OperatorControl({
           <button
             onClick={() => operateGate('outputGate', data.outputGate.isOpen ? 0 : 400)}
             className={cn(
-              "flex-1 xl:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[11px] transition-all border whitespace-nowrap active:scale-95",
+              "flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all border whitespace-nowrap active:scale-95",
               data.outputGate.isOpen 
                 ? "bg-orange-900/20 border-orange-800 text-orange-500 hover:bg-orange-900/40" 
-                : "bg-orange-600/20 border-orange-500 text-orange-400 hover:bg-orange-600/40"
+                : "bg-orange-600/20 border-orange-500 text-orange-400 hover:bg-orange-650/40"
             )}
           >
-            {data.outputGate.isOpen ? <Square size={14} /> : <RefreshCw size={14} />}
-            <span>{data.outputGate.isOpen ? 'TAHLİYEYİ DURDUR' : 'TAHLİYEYİ BAŞLAT'}</span>
-          </button>
-
-          <div className="w-px h-8 bg-gray-800 mx-1 hidden xl:block" />
-
-          {/* Exit Mode */}
-          <button
-            onClick={() => setMode('BEKLEMEDE')}
-            className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-red-900/40 border border-red-800 hover:bg-red-900 text-red-500 px-4 py-2 rounded font-bold text-[11px] transition-all active:scale-95 whitespace-nowrap"
-          >
-            <ShieldAlert size={14} />
-            <span>MODDAN ÇIK</span>
+            {data.outputGate.isOpen ? <Square size={12} /> : <RefreshCw size={12} />}
+            <span>{data.outputGate.isOpen ? '3. TAHLİYEYİ DURDUR' : '3. TAHLİYEYİ BAŞLAT'}</span>
           </button>
         </div>
       </div>
@@ -251,10 +252,10 @@ export function OperatorControl({
               <Cpu size={12} className="mr-2"/> Görsel Akış Kontrolü
            </h2>
            
-           <div className="flex-1 flex flex-col justify-end items-center relative w-full pb-16 z-10">
+           <div className="flex-1 flex flex-col justify-between items-center relative w-full pt-2 pb-16 z-10">
               
               {/* Target / Progress Line */}
-              <div className="absolute top-0 w-full flex items-center justify-between px-8 z-20">
+              <div className="w-full flex items-center justify-between px-8 z-20 mb-4">
                   <div className="bg-[#0D1016]/95 backdrop-blur-sm p-2 rounded border border-[#1F2937] text-center w-28 relative flex flex-col items-center shadow-lg">
                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
                        <div className={cn("w-6 h-1 rounded-full", data.sensors.find(s=>s.id=='SENS-IN')?.enabled ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]")} />
@@ -538,7 +539,7 @@ export function OperatorControl({
                  return (
                     <div className="flex gap-4 mt-2 flex-1 items-stretch min-h-0 overflow-hidden">
                        {/* Visual Tank (Left Side) */}
-                       <div className="w-[180px] bg-gradient-to-b from-[#0D1016]/40 to-black/30 border border-gray-700/40 rounded-xl relative overflow-hidden flex flex-col justify-end shadow-inner shrink-0 min-h-[130px]">
+                       <div className="w-[110px] bg-gradient-to-b from-[#0D1016]/40 to-black/30 border border-gray-700/40 rounded-xl relative overflow-hidden flex flex-col justify-end shadow-inner shrink-0 min-h-[130px]">
                           {/* Fluid liquid */}
                           <div 
                              className={cn(
@@ -635,7 +636,7 @@ export function OperatorControl({
               <div className="space-y-1.5 mt-2">
                  <div className="flex justify-between items-center text-[10px] border-b border-gray-800/40 pb-1">
                     <span className="text-gray-500">Seçili Reçete:</span>
-                    <span className="font-mono text-white truncate max-w-[150px]">{activeRecipe.name}</span>
+                    <span className="font-mono text-white truncate max-w-[220px]">{activeRecipe.name}</span>
                  </div>
                  <div className="flex justify-between items-center text-[10px] border-b border-gray-800/40 pb-1">
                     <span className="text-gray-500">Hedef Şişe:</span>

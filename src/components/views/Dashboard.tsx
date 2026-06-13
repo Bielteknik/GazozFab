@@ -228,10 +228,10 @@ export function Dashboard({
               <Cpu size={12} className="mr-2"/> Görsel Akış Kontrolü
            </h2>
            
-           <div className="flex-1 flex flex-col justify-end items-center relative w-full pb-16 z-10">
+           <div className="flex-1 flex flex-col justify-between items-center relative w-full pt-2 pb-16 z-10">
               
               {/* Target / Progress Line */}
-              <div className="absolute top-0 w-full flex items-center justify-between px-8 z-20">
+              <div className="w-full flex items-center justify-between px-8 z-20 mb-4">
                   <div className="bg-[#0D1016]/95 backdrop-blur-sm p-2 rounded border border-[#1F2937] text-center w-28 relative flex flex-col items-center shadow-lg">
                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
                        <div className={cn("w-6 h-1 rounded-full", data.sensors.find(s=>s.id=='SENS-IN')?.enabled ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]")} />
@@ -499,7 +499,7 @@ export function Dashboard({
                  return (
                      <div className="flex gap-4 mt-2 flex-1 items-stretch min-h-0 overflow-hidden">
                         {/* Visual Tank (Left Side) */}
-                        <div className="w-[180px] bg-gradient-to-b from-[#0D1016]/40 to-black/30 border border-gray-700/40 rounded-xl relative overflow-hidden flex flex-col justify-end shadow-inner shrink-0 min-h-[130px]">
+                        <div className="w-[110px] bg-gradient-to-b from-[#0D1016]/40 to-black/30 border border-gray-700/40 rounded-xl relative overflow-hidden flex flex-col justify-end shadow-inner shrink-0 min-h-[130px]">
                            {/* Fluid liquid */}
                            <div 
                               className={cn(
@@ -596,7 +596,7 @@ export function Dashboard({
               <div className="space-y-1.5 mt-2">
                  <div className="flex justify-between items-center text-[10px] border-b border-gray-800/40 pb-1">
                     <span className="text-gray-500">Seçili Reçete:</span>
-                    <span className="font-mono text-white truncate max-w-[150px]">{activeRecipe.name}</span>
+                    <span className="font-mono text-white truncate max-w-[220px]">{activeRecipe.name}</span>
                  </div>
                  <div className="flex justify-between items-center text-[10px] border-b border-gray-800/40 pb-1">
                     <span className="text-gray-500">Hedef Şişe:</span>
