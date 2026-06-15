@@ -827,7 +827,7 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                       <div className="border-t border-[#2D333F] pt-3 flex flex-col gap-2">
                                          <div className="flex items-center justify-between text-[9px]">
                                             <span className="text-gray-500">Fiziksel Sensör Son Değeri:</span>
-                                            <span className="font-mono font-bold text-blue-400">{data.state.tankLevelCm ?? '-'} cm</span>
+                                            <span className="font-mono font-bold text-blue-400">{data.tankLevelCm ?? '-'} cm</span>
                                          </div>
                                          <button
                                             type="button"
