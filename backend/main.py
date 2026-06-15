@@ -630,10 +630,22 @@ async def handle_action(sid, data):
         if "device" in updates or "connectionId" in updates:
             current = db.fetchone("SELECT * FROM sensors WHERE id = ?", (sid_val,))
             if current:
-                new_device_type = updates.get("device", "NANO" if current.get("device") != "RASPI" else "RASPI")
-                new_conn_id = updates.get("connectionId", current.get("device") if current.get("device") != "RASPI" else "")
+                new_device_type = updates.get("device")
+                if not new_device_type:
+                    new_device_type = "RASPI" if current.get("device") == "RASPI" else "NANO"
                 
-                updates["device"] = "RASPI" if new_device_type == "RASPI" else new_conn_id
+                new_conn_id = updates.get("connectionId")
+                if not new_conn_id:
+                    new_conn_id = current.get("device") if current.get("device") != "RASPI" else ""
+                
+                if new_device_type == "RASPI":
+                    updates["device"] = "RASPI"
+                else:
+                    if not new_conn_id or new_conn_id == "RASPI":
+                        first_nano = db.fetchone("SELECT id FROM nanos LIMIT 1")
+                        new_conn_id = first_nano["id"] if first_nano else "GatesNano"
+                    updates["device"] = new_conn_id
+                    
                 updates.pop("connectionId", None)
 
         for k, v in list(updates.items()):

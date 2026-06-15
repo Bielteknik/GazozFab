@@ -51,6 +51,7 @@ export const ManualControl: React.FC<ManualControlProps> = ({
   const [gateCal, setGateCal] = useState({ target: 'inputGate' as 'inputGate' | 'outputGate', steps: 400, speed: 800 });
   const [lastLoadedTarget, setLastLoadedTarget] = useState<string | null>(null);
   const [sensorCal, setSensorCal] = useState({ id: 'input', debounceMs: 100 });
+  const [lastLoadedSensorId, setLastLoadedSensorId] = useState<string | null>(null);
 
   useEffect(() => {
     const activeGate = data[gateCal.target];
@@ -63,6 +64,30 @@ export const ManualControl: React.FC<ManualControlProps> = ({
       setLastLoadedTarget(gateCal.target);
     }
   }, [gateCal.target, data, lastLoadedTarget]);
+
+  // Set initial sensor ID when data.sensors becomes available
+  useEffect(() => {
+    if (data.sensors?.length && !data.sensors.some(s => s.id === sensorCal.id)) {
+      const firstSens = data.sensors[0];
+      setSensorCal({
+        id: firstSens.id,
+        debounceMs: firstSens.debounceMs || 50
+      });
+      setLastLoadedSensorId(firstSens.id);
+    }
+  }, [data.sensors, sensorCal.id]);
+
+  // Sync sensorCal with actual sensor settings when selection changes or sensor values update from database
+  useEffect(() => {
+    const activeSensor = data.sensors?.find(s => s.id === sensorCal.id);
+    if (activeSensor && lastLoadedSensorId !== sensorCal.id) {
+      setSensorCal(prev => ({
+        ...prev,
+        debounceMs: activeSensor.debounceMs || 50
+      }));
+      setLastLoadedSensorId(sensorCal.id);
+    }
+  }, [sensorCal.id, data.sensors, lastLoadedSensorId]);
 
   const isManual = data.mode === 'MANUEL';
   const timeLeft = 30; // Static for now

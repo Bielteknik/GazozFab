@@ -234,6 +234,43 @@ void processCommand(String cmd) {
     parseConfig(cmd.substring(7));
   }
 
+  else if (cmd.startsWith("READ:HCSR04:")) {
+    // Format: READ:HCSR04:D11:D12
+    String trigPinStr = getPart(cmd, ':', 2);
+    String echoPinStr = getPart(cmd, ':', 3);
+
+    trigPinStr.replace("D", "");
+    echoPinStr.replace("D", "");
+
+    int trigPin = trigPinStr.toInt();
+    int echoPin = echoPinStr.toInt();
+
+    if (trigPin > 0 && echoPin > 0) {
+      pinMode(trigPin, OUTPUT);
+      pinMode(echoPin, INPUT);
+
+      digitalWrite(trigPin, LOW);
+      delayMicroseconds(2);
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(trigPin, LOW);
+
+      unsigned long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout (~5m)
+      long distance_mm = 0;
+      if (duration > 0) {
+        // Sound speed = 343 m/s -> 0.343 mm/us -> Distance = (duration * 0.343) / 2
+        distance_mm = (duration * 343) / 2000;
+      }
+      
+      Serial.print("EVENT:HCSR04:D");
+      Serial.print(trigPin);
+      Serial.print(":D");
+      Serial.print(echoPin);
+      Serial.print(":");
+      Serial.println(distance_mm);
+    }
+  }
+
   else if (cmd.startsWith("GATE:")) {
     // Format: GATE:OPEN:D5:D2:D8:400:1000  veya  GATE:CLOSE:D5:D2:D8:400:1000
     String action = getPart(cmd, ':', 1);
