@@ -749,6 +749,57 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                       </div>
                                    </div>
 
+                                   <div className="border-t border-[#2D333F] pt-4 my-2 space-y-4">
+                                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Periyodik Ölçüm & Röle Kontrol Ayarları</div>
+                                       
+                                       <div className="grid grid-cols-2 gap-4">
+                                          <div className="space-y-1">
+                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Ölçüm Sıklığı (Dakika)</label>
+                                             <input 
+                                                type="number"
+                                                value={data.config.ultrasonicIntervalMin || 3}
+                                                onChange={(e) => onUpdateConfig?.({ ultrasonicIntervalMin: Number(e.target.value) })}
+                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
+                                                min="1"
+                                             />
+                                          </div>
+                                          <div className="space-y-1">
+                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Sınır Mesafe (cm)</label>
+                                             <input 
+                                                type="number"
+                                                value={data.config.ultrasonicThresholdCm || 30}
+                                                onChange={(e) => onUpdateConfig?.({ ultrasonicThresholdCm: Number(e.target.value) })}
+                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
+                                                min="1"
+                                             />
+                                          </div>
+                                       </div>
+
+                                       <div className="grid grid-cols-2 gap-4">
+                                          <div className="space-y-1">
+                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">GatesNano Röle Pini</label>
+                                             <input 
+                                                type="text"
+                                                value={data.config.ultrasonicRelayPin || '11'}
+                                                onChange={(e) => onUpdateConfig?.({ ultrasonicRelayPin: e.target.value })}
+                                                placeholder="Örn: 11, D11"
+                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-orange-400 outline-none focus:border-orange-500/50 font-mono"
+                                             />
+                                          </div>
+                                          <div className="space-y-1">
+                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Röle Açık Kalma Süresi (ms)</label>
+                                             <input 
+                                                type="number"
+                                                value={data.config.ultrasonicRelayDurationMs || 5000}
+                                                onChange={(e) => onUpdateConfig?.({ ultrasonicRelayDurationMs: Number(e.target.value) })}
+                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
+                                                min="100"
+                                                step="100"
+                                             />
+                                          </div>
+                                       </div>
+                                    </div>
+
                                    <div className="bg-[#1C2029]/50 p-4 border border-[#2D333F] rounded space-y-3">
                                       <div className="flex items-center justify-between">
                                          <div className="text-[10px] font-bold text-gray-400 uppercase">Şerbet Tankı Kalibrasyon & Seviye Görünümü</div>

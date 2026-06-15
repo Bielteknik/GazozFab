@@ -269,6 +269,22 @@ void processCommand(String cmd) {
       Serial.print(":");
       Serial.println(distance_mm);
     }
+  else if (cmd.startsWith("VALVE:ON:") || cmd.startsWith("VALVE:OFF:")) {
+    bool state = cmd.startsWith("VALVE:ON:");
+    String pinStr = getPart(cmd, ':', 2);
+    pinStr.replace("D", "");
+    int pin = pinStr.toInt();
+
+    if (pin >= 2 && pin <= 13) {
+      // Motor and sensor pins are protected to prevent accidental overrides
+      if (pin != ENABLE_PIN && pin != X_STEP && pin != X_DIR && pin != Y_STEP && pin != Y_DIR && pin != SENSOR_X && pin != SENSOR_Y) {
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, state ? HIGH : LOW);
+        Serial.print("STATUS:VALVE:D");
+        Serial.print(pin);
+        Serial.println(state ? ":ON" : ":OFF");
+      }
+    }
   }
 
   else if (cmd.startsWith("GATE:")) {

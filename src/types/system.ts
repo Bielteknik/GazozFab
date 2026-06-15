@@ -128,6 +128,12 @@ export interface SystemConfig {
   ultrasonicDebounceMs: number;
   ultrasonicMeasurementType: 'CONTINUOUS' | 'CYCLE' | 'CONSUMPTION';
   ultrasonicMeasurementIntervalMl: number;
+  
+  // Periodic Measurement & Relay Control
+  ultrasonicIntervalMin?: number;
+  ultrasonicThresholdCm?: number;
+  ultrasonicRelayPin?: string;
+  ultrasonicRelayDurationMs?: number;
 }
 
 export interface Recipe {

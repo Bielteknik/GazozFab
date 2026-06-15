@@ -99,6 +99,22 @@ def init_db():
                 conn.execute("ALTER TABLE system_state ADD COLUMN testOutputCount INTEGER DEFAULT 0")
             except Exception:
                 pass
+            try:
+                conn.execute("ALTER TABLE system_config ADD COLUMN ultrasonicIntervalMin INTEGER DEFAULT 3")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE system_config ADD COLUMN ultrasonicThresholdCm INTEGER DEFAULT 30")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE system_config ADD COLUMN ultrasonicRelayPin TEXT DEFAULT '11'")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE system_config ADD COLUMN ultrasonicRelayDurationMs INTEGER DEFAULT 5000")
+            except Exception:
+                pass
                 
             try:
                 conn.execute("UPDATE valves SET relayInversion = 0 WHERE device = 'NANO'")
@@ -410,11 +426,26 @@ def handle_sensor_event(device_id, sensor_type):
         add_log(f"{'Giriş' if sensor_type == 'IN' else 'Çıkış'} Lazeri algılandı. Yeni Sayı: {val} (Test: {test_val})")
         broadcast_callback()
 
+# Ultrasonic measurement session variables for averaging & relay trigger control
+ultrasonic_session = {
+    "active": False,
+    "readings": [],
+    "last_run": 0.0,
+    "prev_average": None
+}
+
 # Distance event callback from hardware (HC-SR04)
 def handle_distance_read(distance_cm):
-    # Convert distance to tank fill percentage or log directly
+    global ultrasonic_session
+    # Always save the latest reading in the system state for UI/dashboard
     db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (int(distance_cm),))
     broadcast_callback()
+    
+    # If a dynamic averaging session is active, accumulate the reading
+    if ultrasonic_session["active"]:
+        # Filter out obvious noise / out of bounds
+        if 1.0 < distance_cm < 400.0:
+            ultrasonic_session["readings"].append(distance_cm)
 
 # Limit switch event callback from GatesNano (D9, D10)
 def handle_limit_switch_event(gate_id, is_open):
@@ -959,19 +990,75 @@ async def serial_polling_loop():
             pass
         await asyncio.sleep(0.1) # Fast poll to keep serial responsive
 
-# Background ultrasonic sensor reading loop
+# Background ultrasonic sensor reading loop (Periodic Averaging & GatesNano Relay control)
 async def ultrasonic_polling_loop():
+    global ultrasonic_session
     while True:
         try:
-            config_row = db.fetchone("SELECT ultrasonicTrigPin, ultrasonicEchoPin, ultrasonicDevice FROM system_config WHERE id = 1")
-            if config_row:
-                trig = config_row["ultrasonicTrigPin"]
-                echo = config_row["ultrasonicEchoPin"]
-                dev = config_row["ultrasonicDevice"]
-                hw.request_ultrasonic_distance(trig, echo, dev)
+            config = db.fetchone("SELECT * FROM system_config WHERE id = 1")
+            if config:
+                interval_min = config.get("ultrasonicIntervalMin", 3)
+                threshold_cm = config.get("ultrasonicThresholdCm", 30)
+                relay_pin = config.get("ultrasonicRelayPin", "11")
+                relay_duration_ms = config.get("ultrasonicRelayDurationMs", 5000)
+                trig = config["ultrasonicTrigPin"]
+                echo = config["ultrasonicEchoPin"]
+                dev = config["ultrasonicDevice"]
+                
+                now = time.time()
+                # Run periodically every `interval_min` minutes.
+                # If first run (last_run == 0.0), trigger measurement after 10 seconds.
+                if ultrasonic_session["last_run"] == 0.0:
+                    ultrasonic_session["last_run"] = now - (interval_min * 60.0) + 10.0
+                    
+                interval_sec = interval_min * 60.0
+                if now - ultrasonic_session["last_run"] >= interval_sec:
+                    ultrasonic_session["last_run"] = now
+                    ultrasonic_session["readings"] = []
+                    ultrasonic_session["active"] = True
+                    
+                    add_log("Seviye Ölçümü: Periyodik ultrasonik ölçüm başladı (10 okuma toplanıyor)...")
+                    
+                    # Request 12 readings (0.5s interval) to guarantee we gather at least 10 valid values
+                    for _ in range(12):
+                        hw.request_ultrasonic_distance(trig, echo, dev)
+                        await asyncio.sleep(0.5)
+                        
+                    ultrasonic_session["active"] = False
+                    valid_readings = ultrasonic_session["readings"]
+                    
+                    if len(valid_readings) >= 5:
+                        # Compute average of up to 10 valid readings
+                        readings_to_use = valid_readings[:10]
+                        avg_distance = sum(readings_to_use) / len(readings_to_use)
+                        
+                        prev_avg = ultrasonic_session["prev_average"]
+                        diff_str = f" (Önceki: {prev_avg:.1f} cm)" if prev_avg is not None else ""
+                        add_log(f"Seviye Ölçümü: 10 okuma ortalaması = {avg_distance:.1f} cm{diff_str}")
+                        
+                        # Update system state tankLevelCm with average value
+                        db.execute("UPDATE system_state SET tankLevelCm = ? WHERE id = 1", (int(avg_distance),))
+                        broadcast_callback()
+                        
+                        # Trigger GatesNano relay if level drops below threshold
+                        if avg_distance < threshold_cm:
+                            add_log(f"Kritik Seviye Uyarısı: Şerbet mesafesi ({avg_distance:.1f} cm) kritik sınırın ({threshold_cm} cm) altında! GatesNano Rölesi (D{relay_pin}) {relay_duration_ms / 1000.0:.1f} sn açılıyor...")
+                            
+                            # Turn GatesNano relay ON
+                            hw.control_valve(None, relay_pin, True, "GatesNano")
+                            # Wait for duration
+                            await asyncio.sleep(relay_duration_ms / 1000.0)
+                            # Turn GatesNano relay OFF
+                            hw.control_valve(None, relay_pin, False, "GatesNano")
+                            
+                            add_log(f"GatesNano Rölesi (D{relay_pin}) kapatıldı.")
+                            
+                        ultrasonic_session["prev_average"] = avg_distance
+                    else:
+                        add_log("Seviye Ölçümü Hata: Yeterli miktarda güvenilir ultrasonik okuma alınamadı.")
         except Exception as e:
-            pass
-        await asyncio.sleep(2.0)
+            print(f"[Ultrasonic Polling Error] {e}")
+        await asyncio.sleep(5.0)
 
 # Async Context helper to handle background loops
 async def start_background_tasks(app):

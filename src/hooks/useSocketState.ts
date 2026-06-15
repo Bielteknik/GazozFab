@@ -53,7 +53,11 @@ export const INITIAL_STATE: SystemData = {
     ultrasonicCriticalLowPercent: 15,
     ultrasonicDebounceMs: 100,
     ultrasonicMeasurementType: 'CONTINUOUS',
-    ultrasonicMeasurementIntervalMl: 2000
+    ultrasonicMeasurementIntervalMl: 2000,
+    ultrasonicIntervalMin: 3,
+    ultrasonicThresholdCm: 30,
+    ultrasonicRelayPin: '11',
+    ultrasonicRelayDurationMs: 5000
   },
   recipes: [],
   isWashingDone: false,
