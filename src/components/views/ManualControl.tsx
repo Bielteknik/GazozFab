@@ -19,12 +19,13 @@ interface ManualControlProps {
   sendNanoCommand: (nanoId: string, cmd: string) => void;
   onUpdateConfig?: (config: Partial<SystemConfig>) => void;
   onResetGates?: () => void;
+  onTriggerManualUltrasonic?: () => void;
 }
 
 export const ManualControl: React.FC<ManualControlProps> = ({ 
   data, setMode, operateGate, toggleValve, testValvePulse,
   onUpdateRecipe, onUpdateSystemGate, onUpdateSensor, sendNanoCommand, onUpdateConfig,
-  onResetGates
+  onResetGates, onTriggerManualUltrasonic
 }) => {
   
   const [password, setPassword] = useState('');
@@ -822,6 +823,21 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                       <p className="text-[8px] text-gray-600 leading-normal italic">
                                          * Bu sürgü, fiziksel ultrasonik sensörün tank tavanından sıvı yüzeyine olan mesafesini kalibre etmek veya test etmek için kullanılır. Sıvı yüksekliği arttıkça okunan mesafe düşer.
                                       </p>
+
+                                      <div className="border-t border-[#2D333F] pt-3 flex flex-col gap-2">
+                                         <div className="flex items-center justify-between text-[9px]">
+                                            <span className="text-gray-500">Fiziksel Sensör Son Değeri:</span>
+                                            <span className="font-mono font-bold text-blue-400">{data.state.tankLevelCm ?? '-'} cm</span>
+                                         </div>
+                                         <button
+                                            type="button"
+                                            onClick={() => onTriggerManualUltrasonic?.()}
+                                            className="w-full bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white rounded py-2 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-orange-950/20"
+                                         >
+                                            <RefreshCw size={12} />
+                                            Fiziksel Sensör Testi Başlat (10 Okuma)
+                                         </button>
+                                      </div>
                                    </div>
                                 </div>
 

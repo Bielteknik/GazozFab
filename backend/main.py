@@ -914,7 +914,16 @@ async def handle_action(sid, data):
             add_log("Kilit sınır anahtarı durumları sorgulandı (Sıfırlandı).")
         else:
             add_log("Hata: GatesNano bağlı değil, kilit sınır anahtarları sorgulanamadı.")
-        
+            
+    elif action_type == 'TRIGGER_MANUAL_ULTRASONIC':
+        config = db.fetchone("SELECT * FROM system_config WHERE id = 1")
+        if config:
+            interval_min = config.get("ultrasonicIntervalMin", 3)
+            now = time.time()
+            # Trigger immediately on next tick by setting last_run far in the past
+            ultrasonic_session["last_run"] = now - (interval_min * 60.0) - 10.0
+            add_log("Kullanıcı talebiyle manuel ultrasonik seviye ölçümü başlatıldı...")
+            
     else:
         print(f"[Socket] Unknown action: {action_type}")
 

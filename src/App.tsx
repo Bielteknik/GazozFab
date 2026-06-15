@@ -64,7 +64,8 @@ export default function App() {
     manualLogout,
     manualToken,
     manualExpires,
-    softReboot
+    softReboot,
+    triggerManualUltrasonic
   } = useSocketState();
 
   const handleSoftReboot = () => {
@@ -136,6 +137,7 @@ export default function App() {
              sendNanoCommand={sendNanoCommand}
              onUpdateConfig={updateConfig}
              onResetGates={resetGates}
+             onTriggerManualUltrasonic={triggerManualUltrasonic}
           />
         )}
         {currentTab === 'history' && (

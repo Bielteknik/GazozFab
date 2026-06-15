@@ -382,6 +382,9 @@ export function useSocketState() {
     },
     softReboot: () => {
       emitAction('SOFT_REBOOT');
+    },
+    triggerManualUltrasonic: () => {
+      emitAction('TRIGGER_MANUAL_ULTRASONIC');
     }
   };
 }
