@@ -13,6 +13,17 @@ echo -e "${BLUE}======================================================${NC}"
 # Kök dizine geç
 cd "$(dirname "$0")"
 
+# SSH / Uzaktan terminal oturumlarında tarayıcının Pi 5 yerel ekranında açılabilmesi için Display/Wayland tanımlamaları
+if [ -z "$DISPLAY" ]; then
+    export DISPLAY=:0
+fi
+if [ -z "$WAYLAND_DISPLAY" ]; then
+    export WAYLAND_DISPLAY=wayland-0
+fi
+if [ -z "$XDG_RUNTIME_DIR" ]; then
+    export XDG_RUNTIME_DIR=/run/user/$(id -u bielteknik 2>/dev/null || id -u)
+fi
+
 echo -e "${YELLOW}[Mod] Web Arayüzü (React + WebSockets) modu aktif edildi.${NC}"
 
 
