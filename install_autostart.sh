@@ -12,7 +12,21 @@ echo -e "${BLUE}======================================================${NC}"
 
 PROJ_DIR="$(pwd)"
 
-# 1. Standart XDG Autostart Desteği (.desktop dosyası)
+# 1. Önceki çift tetiklemeleri (Labwc & Wayfire özel eklemelerini) temizle
+LABWC_AUTOCONF="$HOME/.config/labwc/autostart"
+if [ -f "$LABWC_AUTOCONF" ]; then
+    sed -i '/# GazozFab Otomasyonu/d' "$LABWC_AUTOCONF" 2>/dev/null
+    sed -i '/GazozFab\/start.sh/d' "$LABWC_AUTOCONF" 2>/dev/null
+fi
+
+WAYFIRE_CONF="$HOME/.config/wayfire.ini"
+if [ -f "$WAYFIRE_CONF" ]; then
+    sed -i '/gazozfab =/d' "$WAYFIRE_CONF" 2>/dev/null
+fi
+
+# 2. Standart XDG Autostart Desteği (.desktop dosyası)
+# Labwc ve Wayfire masaüstü yöneticileri ~/.config/autostart/ altındaki .desktop dosyalarını
+# otomatik olarak tarayıp çalıştırır. Sadece bu yöntemin kullanılması çift açılışı engeller.
 AUTOSTART_DIR="$HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 cp gazozfab.desktop "$AUTOSTART_DIR/gazozfab.desktop"
@@ -20,28 +34,6 @@ chmod +x "$AUTOSTART_DIR/gazozfab.desktop"
 
 echo -e "${GREEN}[Başarılı] Standart XDG Başlatıcı yüklendi:${NC}"
 echo -e "${YELLOW}$AUTOSTART_DIR/gazozfab.desktop${NC}"
-
-# 2. Labwc (Modern Raspberry Pi OS varsayılanı) Desteği
-LABWC_DIR="$HOME/.config/labwc"
-mkdir -p "$LABWC_DIR"
-if ! grep -q "GazozFab/start.sh" "$LABWC_DIR/autostart" 2>/dev/null; then
-    echo -e "\n# GazozFab Otomasyonu otomatik baslatici\nbash $PROJ_DIR/start.sh &" >> "$LABWC_DIR/autostart"
-    chmod +x "$LABWC_DIR/autostart"
-    echo -e "${GREEN}[Başarılı] Labwc Autostart yapılandırması güncellendi.${NC}"
-fi
-
-# 3. Wayfire (Eski Raspberry Pi OS varsayılanı) Desteği
-WAYFIRE_CONF="$HOME/.config/wayfire.ini"
-if [ -f "$WAYFIRE_CONF" ]; then
-    if ! grep -q "GazozFab" "$WAYFIRE_CONF"; then
-        if grep -q "\[autostart\]" "$WAYFIRE_CONF"; then
-            sed -i '/\[autostart\]/a gazozfab = bash '"$PROJ_DIR"'/start.sh' "$WAYFIRE_CONF"
-        else
-            echo -e "\n[autostart]\ngazozfab = bash $PROJ_DIR/start.sh" >> "$WAYFIRE_CONF"
-        fi
-        echo -e "${GREEN}[Başarılı] Wayfire Autostart yapılandırması güncellendi.${NC}"
-    fi
-fi
 
 # Masaüstüne (Desktop) kısayol ekleme
 DESKTOP_DIR="$HOME/Desktop"
