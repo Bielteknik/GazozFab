@@ -83,6 +83,46 @@ cleanup() {
 # Sinyalleri yakala (CTRL+C, Kapatma vb.)
 trap cleanup INT TERM EXIT
 
-echo -e "${GREEN}[Sistem] Ön Yüz (Vite: 3000) ve Arka Yüz (Python: 8000) eşzamanlı başlatılıyor...${NC}"
-echo -e "${BLUE}------------------------------------------------------${NC}"
-npm run dev
+# 1. Arka Yüzü (Backend) Başlat
+echo -e "${GREEN}[Backend] Arka Yüz (Python: 8000) arka planda başlatılıyor...${NC}"
+cd backend
+./pzoz_venv/bin/python3 -u main.py > backend.log 2>&1 &
+BACKEND_PID=$!
+cd ..
+
+# Backend'in hazır olmasını (Port 8000) bekle
+echo -e "${YELLOW}[Backend] Port 8000'in hazır olması bekleniyor...${NC}"
+until curl -s http://localhost:8000/ >/dev/null 2>&1 || nc -z localhost 8000 >/dev/null 2>&1; do
+    sleep 0.5
+done
+echo -e "${GREEN}[Backend] Arka Yüz başarıyla açıldı ve hazır!${NC}"
+
+# 2. Ön Yüzü (Frontend) Başlat
+echo -e "${GREEN}[Frontend] Ön Yüz (Vite: 3000) arka planda başlatılıyor...${NC}"
+npm run dev:frontend > frontend.log 2>&1 &
+FRONTEND_PID=$!
+
+# Frontend'in hazır olmasını (Port 3000) bekle
+echo -e "${YELLOW}[Frontend] Port 3000'in hazır olması bekleniyor...${NC}"
+until curl -s http://localhost:3000/ >/dev/null 2>&1 || nc -z localhost 3000 >/dev/null 2>&1; do
+    sleep 0.5
+done
+echo -e "${GREEN}[Frontend] Ön Yüz başarıyla açıldı ve hazır!${NC}"
+
+# 3. Web Tarayıcısını Aç
+echo -e "${GREEN}[Sistem] Web tarayıcısı otomatik açılıyor...${NC}"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    open http://localhost:3000
+else
+    # Linux (Pi 5) üzerinde çalışıyorsak tam ekran modunda aç
+    if command -v chromium-browser &> /dev/null; then
+        chromium-browser --start-maximized --noerrdialogs --disable-infobars http://localhost:3000 &
+    elif command -v chromium &> /dev/null; then
+        chromium --start-maximized --noerrdialogs --disable-infobars http://localhost:3000 &
+    else
+        xdg-open http://localhost:3000 &
+    fi
+fi
+
+# Süreçlerin bitmesini bekle (Script'in açık kalması ve CTRL+C ile sonlanması için)
+wait $BACKEND_PID $FRONTEND_PID

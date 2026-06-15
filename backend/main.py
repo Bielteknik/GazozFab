@@ -529,11 +529,24 @@ async def handle_action(sid, data):
 
     elif action_type == 'OPERATE_GATE':
         target = payload.get('target') # 'inputGate' or 'outputGate'
-        position = payload.get('position', 0)
-        is_open = (position > 0)
         
-        steps = payload.get('steps')
-        speed = payload.get('speed')
+        # Cast position, steps, and speed safely to integers to prevent type comparison crashes
+        try:
+            position = int(payload.get('position', 0))
+        except (ValueError, TypeError):
+            position = 0
+            
+        try:
+            steps = int(payload.get('steps')) if payload.get('steps') is not None else None
+        except (ValueError, TypeError):
+            steps = None
+            
+        try:
+            speed = int(payload.get('speed')) if payload.get('speed') is not None else None
+        except (ValueError, TypeError):
+            speed = None
+            
+        is_open = (position > 0)
         
         # Get pin and device for the gate
         gate = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = ?", (target,))
@@ -867,7 +880,8 @@ async def handle_action(sid, data):
         'UPDATE_NANO_CONFIG', 'UPDATE_VALVE', 'UPDATE_SENSOR', 
         'UPDATE_GATE', 'UPDATE_SYSTEM_GATE', 'TOGGLE_SENSOR_ENABLED', 
         'ADD_SENSOR', 'REMOVE_SENSOR', 'ADD_GATE', 'REMOVE_GATE', 
-        'ADD_HARDWARE', 'REMOVE_HARDWARE', 'SYSTEM_RESET'
+        'ADD_HARDWARE', 'REMOVE_HARDWARE', 'SYSTEM_RESET', 'UPDATE_CONFIG',
+        'TOGGLE_GATE_ENABLED'
     }
     
     if action_type in hw_actions:

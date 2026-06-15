@@ -563,13 +563,13 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">4. Manuel Hareket Testi</label>
                                         <div className="flex gap-2">
                                            <button 
-                                              onClick={() => operateGate(gateCal.target, -gateCal.steps, gateCal.steps, gateCal.speed)}
+                                              onClick={() => operateGate(gateCal.target, -Number(gateCal.steps), Number(gateCal.steps), Number(gateCal.speed))}
                                               className="flex-1 py-2.5 bg-[#0D1016] hover:bg-[#1C2029] border border-[#374151] text-gray-300 text-[10px] font-bold rounded flex items-center justify-center gap-2 transition-all active:scale-95"
                                            >
                                               <ArrowUp size={12} /> KAPAT
                                            </button>
                                            <button 
-                                              onClick={() => operateGate(gateCal.target, gateCal.steps, gateCal.steps, gateCal.speed)}
+                                              onClick={() => operateGate(gateCal.target, Number(gateCal.steps), Number(gateCal.steps), Number(gateCal.speed))}
                                               className="flex-1 py-2.5 bg-[#0D1016] hover:bg-[#1C2029] border border-[#374151] text-gray-300 text-[10px] font-bold rounded flex items-center justify-center gap-2 transition-all active:scale-95"
                                            >
                                               <ArrowDown size={12} /> AÇ

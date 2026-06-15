@@ -1016,6 +1016,10 @@ class HardwareManager:
                                 print(f"[Hardware] Identified {port} as {mapped}")
                                 device_id = mapped
                                 
+                                # Trigger discovery callback so backend automatically pushes active configuration
+                                if getattr(self, "on_nano_discovered", None):
+                                    self.on_nano_discovered(mapped, mapped, port, conn.baudrate)
+                                
                         # Process via standard incoming line processor
                         if device_id:
                             self.process_incoming_line(device_id, line)
