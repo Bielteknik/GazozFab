@@ -13,6 +13,27 @@ echo -e "${BLUE}======================================================${NC}"
 # Kök dizine geç
 cd "$(dirname "$0")"
 
+# Otomatik başlatmada (autostart) Node.js ve npm komutlarının bulunabilmesi için ortam yöneticilerini yükle
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:$PATH
+
+# NVM (Node Version Manager) yükle
+export NVM_DIR="$HOME/.nvm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+elif [ -s "/home/bielteknik/.nvm/nvm.sh" ]; then
+    export NVM_DIR="/home/bielteknik/.nvm"
+    . "$NVM_DIR/nvm.sh"
+fi
+
+# FNM (Fast Node Manager) yükle
+if [ -d "$HOME/.local/share/fnm" ]; then
+    export PATH="$HOME/.local/share/fnm:$PATH"
+    eval "`fnm env`"
+elif [ -d "/home/bielteknik/.local/share/fnm" ]; then
+    export PATH="/home/bielteknik/.local/share/fnm:$PATH"
+    eval "`fnm env`"
+fi
+
 # SSH / Uzaktan terminal oturumlarında tarayıcının Pi 5 yerel ekranında açılabilmesi için Display/Wayland tanımlamaları
 if [ -z "$DISPLAY" ]; then
     export DISPLAY=:0
