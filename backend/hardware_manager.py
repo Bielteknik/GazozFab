@@ -691,19 +691,22 @@ class HardwareManager:
                 print(f"[GPIO Output Error] Could not write to Pi Pin {pin}: {e}")
                 return False
         else:
-            # ValvesNano command
+            target_device = device
+            if not target_device or target_device == "NANO":
+                target_device = "ValvesNano"
+
             # 1. Check if connected via TCP first
-            if "ValvesNano" in self.network_conns:
+            if target_device in self.network_conns:
                 full_cmd = f"VALVE:{'ON' if state else 'OFF'}:D{pin}"
-                print(f"[Hardware Command TCP] {full_cmd} -> ValvesNano")
-                self.send_command(full_cmd, target_port="ValvesNano")
+                print(f"[Hardware Command TCP] {full_cmd} -> {target_device}")
+                self.send_command(full_cmd, target_port=target_device)
                 return True
 
-            port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+            port = next((p for p, d_id in self.port_to_id_map.items() if d_id == target_device), None)
             if not port:
                 # Retry discovery
-                self.find_and_connect("ValvesNano")
-                port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+                self.find_and_connect(target_device)
+                port = next((p for p, d_id in self.port_to_id_map.items() if d_id == target_device), None)
                 
             if port:
                 # Format: VALVE:ON:D2 or VALVE:OFF:D2
@@ -712,7 +715,7 @@ class HardwareManager:
                 self.send_command(full_cmd, target_port=port)
                 return True
             else:
-                print("[Hardware Error] ValvesNano not connected!")
+                print(f"[Hardware Error] {target_device} not connected!")
                 return False
 
     async def pulse_valve(self, valve_id, pin, duration_ms, device="NANO"):

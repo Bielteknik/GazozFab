@@ -431,7 +431,8 @@ ultrasonic_session = {
     "active": False,
     "readings": [],
     "last_run": 0.0,
-    "prev_average": None
+    "prev_average": None,
+    "last_config": {}
 }
 
 # Distance event callback from hardware (HC-SR04)
@@ -1006,10 +1007,16 @@ async def ultrasonic_polling_loop():
                 dev = config["ultrasonicDevice"]
                 
                 now = time.time()
-                # Run periodically every `interval_min` minutes.
-                # If first run (last_run == 0.0), trigger measurement after 10 seconds.
-                if ultrasonic_session["last_run"] == 0.0:
-                    ultrasonic_session["last_run"] = now - (interval_min * 60.0) + 10.0
+                current_cfg = {
+                    "trig": trig,
+                    "echo": echo,
+                    "dev": dev,
+                    "interval_min": interval_min
+                }
+                
+                if ultrasonic_session.get("last_config") != current_cfg:
+                    ultrasonic_session["last_config"] = current_cfg
+                    ultrasonic_session["last_run"] = now - (interval_min * 60.0) + 5.0
                     
                 interval_sec = interval_min * 60.0
                 if now - ultrasonic_session["last_run"] >= interval_sec:
