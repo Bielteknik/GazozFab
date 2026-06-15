@@ -148,9 +148,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
     # Linux (Pi 5) üzerinde çalışıyorsak tam ekran modunda aç
     if command -v chromium-browser &> /dev/null; then
-        chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:3000 &
+        chromium-browser --app=http://localhost:3000 --start-fullscreen --noerrdialogs --disable-infobars &
     elif command -v chromium &> /dev/null; then
-        chromium --kiosk --noerrdialogs --disable-infobars http://localhost:3000 &
+        chromium --app=http://localhost:3000 --start-fullscreen --noerrdialogs --disable-infobars &
     else
         xdg-open http://localhost:3000 &
     fi
