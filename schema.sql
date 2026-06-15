@@ -172,7 +172,7 @@ INSERT OR IGNORE INTO system_config (
     id, ultrasonicDevice, ultrasonicTrigPin, ultrasonicEchoPin, 
     ultrasonicMaxHeightCm, ultrasonicCriticalLowPercent, ultrasonicDebounceMs, 
     ultrasonicMeasurementType
-) VALUES (1, 'GatesNano', '6', '7', 100, 15, 100, 'CONTINUOUS');
+) VALUES (1, 'GatesNano', '12', '13', 100, 15, 100, 'CONTINUOUS');
 
 INSERT OR IGNORE INTO system_state (id) VALUES (1);
 

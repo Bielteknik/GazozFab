@@ -1,4 +1,4 @@
-// Varsayılan pin tanımları (CNC Shield V3 fallback) New
+// Varsayılan pin tanımları (CNC Shield V3 fallback) New 15 HJaziran
 // Eğer Pi5'ten CONFIG gelmezse bu varsayılan değerlerle çalışır.
 int X_STEP = 5;
 int X_DIR = 2;
@@ -15,7 +15,7 @@ long stepsY = 600;
 // Non-blocking Seri Port Okuma Değişkenleri
 String inputBuffer = "";
 
-void(* resetFunc) (void) = 0; // Software reset function declaration
+void (*resetFunc)(void) = 0; // Software reset function declaration
 
 // Lazer Sensör Durum Takip Değişkenleri (Doğru Debounce ve Değişim Algılama)
 int sensXState = HIGH; // Mevcut kararlı durum
@@ -255,13 +255,15 @@ void processCommand(String cmd) {
       delayMicroseconds(10);
       digitalWrite(trigPin, LOW);
 
-      unsigned long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout (~5m)
+      unsigned long duration =
+          pulseIn(echoPin, HIGH, 30000); // 30ms timeout (~5m)
       long distance_mm = 0;
       if (duration > 0) {
-        // Sound speed = 343 m/s -> 0.343 mm/us -> Distance = (duration * 0.343) / 2
+        // Sound speed = 343 m/s -> 0.343 mm/us -> Distance = (duration * 0.343)
+        // / 2
         distance_mm = (duration * 343) / 2000;
       }
-      
+
       Serial.print("EVENT:HCSR04:D");
       Serial.print(trigPin);
       Serial.print(":D");
@@ -269,214 +271,218 @@ void processCommand(String cmd) {
       Serial.print(":");
       Serial.println(distance_mm);
     }
+  }
+
   else if (cmd.startsWith("VALVE:ON:") || cmd.startsWith("VALVE:OFF:")) {
     bool state = cmd.startsWith("VALVE:ON:");
     String pinStr = getPart(cmd, ':', 2);
     pinStr.replace("D", "");
     int pin = pinStr.toInt();
 
-    if (pin >= 2 && pin <= 13) {
-      // Motor and sensor pins are protected to prevent accidental overrides
-      if (pin != ENABLE_PIN && pin != X_STEP && pin != X_DIR && pin != Y_STEP && pin != Y_DIR && pin != SENSOR_X && pin != SENSOR_Y) {
-        pinMode(pin, OUTPUT);
-        digitalWrite(pin, state ? HIGH : LOW);
-        Serial.print("STATUS:VALVE:D");
-        Serial.print(pin);
-        Serial.println(state ? ":ON" : ":OFF");
+      if (pin >= 2 && pin <= 13) {
+        // Motor and sensor pins are protected to prevent accidental overrides
+        if (pin != ENABLE_PIN && pin != X_STEP && pin != X_DIR &&
+            pin != Y_STEP && pin != Y_DIR && pin != SENSOR_X &&
+            pin != SENSOR_Y) {
+          pinMode(pin, OUTPUT);
+          digitalWrite(pin, state ? HIGH : LOW);
+          Serial.print("STATUS:VALVE:D");
+          Serial.print(pin);
+          Serial.println(state ? ":ON" : ":OFF");
+        }
       }
     }
+
+    else if (cmd.startsWith("GATE:")) {
+      // Format: GATE:OPEN:D5:D2:D8:400:1000  veya  GATE:CLOSE:D5:D2:D8:400:1000
+      String action = getPart(cmd, ':', 1);
+      String stepPinStr = getPart(cmd, ':', 2);
+      String dirPinStr = getPart(cmd, ':', 3);
+      String enPinStr = getPart(cmd, ':', 4);
+      String stepsStr = getPart(cmd, ':', 5);
+      String speedStr = getPart(cmd, ':', 6);
+
+      stepPinStr.replace("D", "");
+      dirPinStr.replace("D", "");
+      enPinStr.replace("D", "");
+
+      int targetStepPin = stepPinStr.toInt();
+      int targetDirPin = dirPinStr.toInt();
+      int targetEnPin = enPinStr.toInt();
+      long targetSteps = stepsStr.toInt();
+      int targetSpeed = speedStr.toInt();
+
+      // Yön belirleme (CNC kilit motoru açma/kapama)
+      bool direction = (action == "OPEN") ? HIGH : LOW;
+      stepDelay = targetSpeed;
+
+      // Motoru sür
+      motorStep(targetStepPin, targetDirPin, direction, targetSteps);
+
+      // Sürücüyü devre dışı bırak (ısınmayı önleme)
+      digitalWrite(targetEnPin, HIGH);
+
+      Serial.println("GATE:OK");
+    }
+
+    else if (cmd == "WHOAMI") {
+      Serial.println("ID:GatesNano;NAME:GatesNano");
+    }
+
+    else if (cmd == "help") {
+      menuGoster();
+    }
+
+    else if (cmd == "status") {
+      durumGoster();
+    }
+
+    else if (cmd == "enable") {
+      digitalWrite(ENABLE_PIN, LOW);
+      Serial.println("Motorlar AKTIF");
+    }
+
+    else if (cmd == "disable") {
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.println("Motorlar PASIF");
+    }
+
+    else if (cmd == "x+") {
+      motorStep(X_STEP, X_DIR, HIGH, stepsX);
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.print("X ileri ");
+      Serial.print(stepsX);
+      Serial.println(" adim");
+    }
+
+    else if (cmd == "x-") {
+      motorStep(X_STEP, X_DIR, LOW, stepsX);
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.print("X geri ");
+      Serial.print(stepsX);
+      Serial.println(" adim");
+    }
+
+    else if (cmd == "y+") {
+      motorStep(Y_STEP, Y_DIR, HIGH, stepsY);
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.print("Y ileri ");
+      Serial.print(stepsY);
+      Serial.println(" adim");
+    }
+
+    else if (cmd == "y-") {
+      motorStep(Y_STEP, Y_DIR, LOW, stepsY);
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.print("Y geri ");
+      Serial.print(stepsY);
+      Serial.println(" adim");
+    }
+
+    else if (cmd == "homex") {
+      Serial.println("X sensor araniyor");
+      digitalWrite(ENABLE_PIN, LOW);
+      digitalWrite(X_DIR, HIGH);
+
+      while (digitalRead(SENSOR_X) == HIGH) {
+        digitalWrite(X_STEP, HIGH);
+        delayMicroseconds(stepDelay);
+        digitalWrite(X_STEP, LOW);
+        delayMicroseconds(stepDelay);
+      }
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.println("X sensor bulundu");
+    }
+
+    else if (cmd == "homey") {
+      Serial.println("Y sensor araniyor");
+      digitalWrite(ENABLE_PIN, LOW);
+      digitalWrite(Y_DIR, HIGH);
+
+      while (digitalRead(SENSOR_Y) == HIGH) {
+        digitalWrite(Y_STEP, HIGH);
+        delayMicroseconds(stepDelay);
+        digitalWrite(Y_STEP, LOW);
+        delayMicroseconds(stepDelay);
+      }
+      digitalWrite(ENABLE_PIN, HIGH);
+      Serial.println("Y sensor bulundu");
+    }
+
+    else if (cmd == "watch") {
+      Serial.println("Izleme modu. Reset ile cikilir");
+      while (true) {
+        Serial.print("X=");
+        if (digitalRead(SENSOR_X))
+          Serial.print("BOS");
+        else
+          Serial.print("ALGILADI");
+
+        Serial.print("   Y=");
+        if (digitalRead(SENSOR_Y))
+          Serial.println("BOS");
+        else
+          Serial.println("ALGILADI");
+
+        delay(250);
+      }
+    }
+
+    // Software reset command
+    else if (cmd == "RESET") {
+      Serial.println("RESETTING");
+      delay(100);
+      resetFunc();
+    }
   }
 
-  else if (cmd.startsWith("GATE:")) {
-    // Format: GATE:OPEN:D5:D2:D8:400:1000  veya  GATE:CLOSE:D5:D2:D8:400:1000
-    String action = getPart(cmd, ':', 1);
-    String stepPinStr = getPart(cmd, ':', 2);
-    String dirPinStr = getPart(cmd, ':', 3);
-    String enPinStr = getPart(cmd, ':', 4);
-    String stepsStr = getPart(cmd, ':', 5);
-    String speedStr = getPart(cmd, ':', 6);
+  void durumGoster() {
+    Serial.println();
+    Serial.print("X Sensor (Pin ");
+    Serial.print(SENSOR_X);
+    Serial.print(") : ");
+    if (digitalRead(SENSOR_X) == LOW)
+      Serial.println("ALGILADI");
+    else
+      Serial.println("BOS");
 
-    stepPinStr.replace("D", "");
-    dirPinStr.replace("D", "");
-    enPinStr.replace("D", "");
+    Serial.print("Y Sensor (Pin ");
+    Serial.print(SENSOR_Y);
+    Serial.print(") : ");
+    if (digitalRead(SENSOR_Y) == LOW)
+      Serial.println("ALGILADI");
+    else
+      Serial.println("BOS");
 
-    int targetStepPin = stepPinStr.toInt();
-    int targetDirPin = dirPinStr.toInt();
-    int targetEnPin = enPinStr.toInt();
-    long targetSteps = stepsStr.toInt();
-    int targetSpeed = speedStr.toInt();
+    Serial.print("Motorlar : ");
+    if (digitalRead(ENABLE_PIN) == LOW)
+      Serial.println("AKTIF");
+    else
+      Serial.println("PASIF");
 
-    // Yön belirleme (CNC kilit motoru açma/kapama)
-    bool direction = (action == "OPEN") ? HIGH : LOW;
-    stepDelay = targetSpeed;
-
-    // Motoru sür
-    motorStep(targetStepPin, targetDirPin, direction, targetSteps);
-
-    // Sürücüyü devre dışı bırak (ısınmayı önleme)
-    digitalWrite(targetEnPin, HIGH);
-
-    Serial.println("GATE:OK");
-  }
-
-  else if (cmd == "WHOAMI") {
-    Serial.println("ID:GatesNano;NAME:GatesNano");
-  }
-
-  else if (cmd == "help") {
-    menuGoster();
-  }
-
-  else if (cmd == "status") {
-    durumGoster();
-  }
-
-  else if (cmd == "enable") {
-    digitalWrite(ENABLE_PIN, LOW);
-    Serial.println("Motorlar AKTIF");
-  }
-
-  else if (cmd == "disable") {
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.println("Motorlar PASIF");
-  }
-
-  else if (cmd == "x+") {
-    motorStep(X_STEP, X_DIR, HIGH, stepsX);
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("X ileri ");
+    Serial.print("Ayarlar  : Delay (Hiz) = ");
+    Serial.print(stepDelay);
+    Serial.print("us, Steps X = ");
     Serial.print(stepsX);
-    Serial.println(" adim");
+    Serial.print(", Steps Y = ");
+    Serial.println(stepsY);
+    Serial.println();
   }
 
-  else if (cmd == "x-") {
-    motorStep(X_STEP, X_DIR, LOW, stepsX);
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("X geri ");
-    Serial.print(stepsX);
-    Serial.println(" adim");
+  void menuGoster() {
+    Serial.println();
+    Serial.println("===== CNC TEST (DINAMIK) =====");
+    Serial.println("help");
+    Serial.println("status");
+    Serial.println("enable");
+    Serial.println("disable");
+    Serial.println("x+");
+    Serial.println("x-");
+    Serial.println("y+");
+    Serial.println("y-");
+    Serial.println("homex");
+    Serial.println("homey");
+    Serial.println("watch");
+    Serial.println("==============================");
+    Serial.println();
   }
-
-  else if (cmd == "y+") {
-    motorStep(Y_STEP, Y_DIR, HIGH, stepsY);
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("Y ileri ");
-    Serial.print(stepsY);
-    Serial.println(" adim");
-  }
-
-  else if (cmd == "y-") {
-    motorStep(Y_STEP, Y_DIR, LOW, stepsY);
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.print("Y geri ");
-    Serial.print(stepsY);
-    Serial.println(" adim");
-  }
-
-  else if (cmd == "homex") {
-    Serial.println("X sensor araniyor");
-    digitalWrite(ENABLE_PIN, LOW);
-    digitalWrite(X_DIR, HIGH);
-
-    while (digitalRead(SENSOR_X) == HIGH) {
-      digitalWrite(X_STEP, HIGH);
-      delayMicroseconds(stepDelay);
-      digitalWrite(X_STEP, LOW);
-      delayMicroseconds(stepDelay);
-    }
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.println("X sensor bulundu");
-  }
-
-  else if (cmd == "homey") {
-    Serial.println("Y sensor araniyor");
-    digitalWrite(ENABLE_PIN, LOW);
-    digitalWrite(Y_DIR, HIGH);
-
-    while (digitalRead(SENSOR_Y) == HIGH) {
-      digitalWrite(Y_STEP, HIGH);
-      delayMicroseconds(stepDelay);
-      digitalWrite(Y_STEP, LOW);
-      delayMicroseconds(stepDelay);
-    }
-    digitalWrite(ENABLE_PIN, HIGH);
-    Serial.println("Y sensor bulundu");
-  }
-
-  else if (cmd == "watch") {
-    Serial.println("Izleme modu. Reset ile cikilir");
-    while (true) {
-      Serial.print("X=");
-      if (digitalRead(SENSOR_X))
-        Serial.print("BOS");
-      else
-        Serial.print("ALGILADI");
-
-      Serial.print("   Y=");
-      if (digitalRead(SENSOR_Y))
-        Serial.println("BOS");
-      else
-        Serial.println("ALGILADI");
-
-      delay(250);
-    }
-  }
-  
-  // Software reset command
-  else if (cmd == "RESET") {
-    Serial.println("RESETTING");
-    delay(100);
-    resetFunc();
-  }
-}
-
-void durumGoster() {
-  Serial.println();
-  Serial.print("X Sensor (Pin ");
-  Serial.print(SENSOR_X);
-  Serial.print(") : ");
-  if (digitalRead(SENSOR_X) == LOW)
-    Serial.println("ALGILADI");
-  else
-    Serial.println("BOS");
-
-  Serial.print("Y Sensor (Pin ");
-  Serial.print(SENSOR_Y);
-  Serial.print(") : ");
-  if (digitalRead(SENSOR_Y) == LOW)
-    Serial.println("ALGILADI");
-  else
-    Serial.println("BOS");
-
-  Serial.print("Motorlar : ");
-  if (digitalRead(ENABLE_PIN) == LOW)
-    Serial.println("AKTIF");
-  else
-    Serial.println("PASIF");
-
-  Serial.print("Ayarlar  : Delay (Hiz) = ");
-  Serial.print(stepDelay);
-  Serial.print("us, Steps X = ");
-  Serial.print(stepsX);
-  Serial.print(", Steps Y = ");
-  Serial.println(stepsY);
-  Serial.println();
-}
-
-void menuGoster() {
-  Serial.println();
-  Serial.println("===== CNC TEST (DINAMIK) =====");
-  Serial.println("help");
-  Serial.println("status");
-  Serial.println("enable");
-  Serial.println("disable");
-  Serial.println("x+");
-  Serial.println("x-");
-  Serial.println("y+");
-  Serial.println("y-");
-  Serial.println("homex");
-  Serial.println("homey");
-  Serial.println("watch");
-  Serial.println("==============================");
-  Serial.println();
-}
