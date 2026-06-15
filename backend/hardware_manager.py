@@ -737,7 +737,7 @@ class HardwareManager:
             tasks.append(self.pulse_valve(v["id"], v["pin"], v["duration"], v["device"]))
         await asyncio.gather(*tasks)
 
-    def control_gate(self, gate_id, pin, state, device="NANO"):
+    def control_gate(self, gate_id, pin, state, device="NANO", steps=None, speed=None):
         """Toggles Gate (Stepper/Solenoid) open/closed."""
         if device == "RASPI":
             try:
@@ -758,10 +758,10 @@ class HardwareManager:
             step_pin = pin
             dir_pin = "D6"
             enable_pin = "D7"
-            steps = 400
-            speed = 2000
+            steps_val = steps
+            speed_val = speed
             
-            if hasattr(self, 'db') and self.db:
+            if (steps_val is None or speed_val is None) and hasattr(self, 'db') and self.db:
                 try:
                     row = self.db.fetchone(
                         "SELECT pin, dirPin, enablePin, stepsToOpen, stepsToClose, speed FROM gates WHERE id = ?",
@@ -771,17 +771,20 @@ class HardwareManager:
                         if row["pin"]: step_pin = row["pin"]
                         if row["dirPin"]: dir_pin = row["dirPin"]
                         if row["enablePin"]: enable_pin = row["enablePin"]
-                        steps = row["stepsToOpen"] if state else row["stepsToClose"]
-                        if row["speed"]: speed = row["speed"]
+                        if steps_val is None:
+                            steps_val = row["stepsToOpen"] if state else row["stepsToClose"]
+                        if speed_val is None:
+                            speed_val = row["speed"]
                 except Exception as e:
                     print(f"[Hardware DB Error] Could not fetch gate config: {e}")
+            
+            if steps_val is None: steps_val = 400
+            if speed_val is None: speed_val = 2000
             
             # Format prefixes cleanly (e.g. D5, D6, D8)
             step_str = f"D{str(step_pin).replace('D', '')}"
             dir_str = f"D{str(dir_pin).replace('D', '')}"
             en_str = f"D{str(enable_pin).replace('D', '')}"
-            steps_val = steps if steps else 400
-            speed_val = speed if speed else 2000
             
             # Format: GATE:<OPEN|CLOSE>:<STEP_PIN>:<DIR_PIN>:<EN_PIN>:<STEPS>:<SPEED>
             full_cmd = f"GATE:{'OPEN' if state else 'CLOSE'}:{step_str}:{dir_str}:{en_str}:{steps_val}:{speed_val}"

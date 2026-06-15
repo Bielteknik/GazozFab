@@ -143,11 +143,18 @@ export function useSocketState() {
         valves: prev.valves.map(v => v.id === id ? { ...v, pulseDuration: duration } : v)
       }));
     },
-    operateGate: (target: 'inputGate' | 'outputGate', position: number) => {
-      emitAction('OPERATE_GATE', { target, position });
+    operateGate: (target: 'inputGate' | 'outputGate', position: number, steps?: number, speed?: number) => {
+      emitAction('OPERATE_GATE', { target, position, steps, speed });
       if (!isConnected) setData(prev => ({
         ...prev,
-        [target]: { ...prev[target], position, isOpen: position > 0 }
+        [target]: { 
+          ...prev[target], 
+          position, 
+          isOpen: position > 0,
+          stepsToOpen: steps ?? prev[target].stepsToOpen,
+          stepsToClose: steps ?? prev[target].stepsToClose,
+          speed: speed ?? prev[target].speed
+        }
       }));
     },
     toggleGateEnabled: (target: 'inputGate' | 'outputGate') => {

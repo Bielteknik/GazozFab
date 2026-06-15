@@ -10,7 +10,7 @@ import { SystemData, SystemMode, Recipe, SensorState, GateState, SystemConfig } 
 interface ManualControlProps {
   data: SystemData;
   setMode: (mode: SystemMode) => void;
-  operateGate: (target: 'inputGate' | 'outputGate', position: number) => void;
+  operateGate: (target: 'inputGate' | 'outputGate', position: number, steps?: number, speed?: number) => void;
   toggleValve: (id: number) => void;
   testValvePulse: (id: number, duration: number) => void;
   onUpdateRecipe: (id: string, updates: Partial<Recipe>) => void;
@@ -49,7 +49,20 @@ export const ManualControl: React.FC<ManualControlProps> = ({
   const [testDuration, setTestDuration] = useState(1000);
   const [measuredMl, setMeasuredMl] = useState<number | ''>('');
   const [gateCal, setGateCal] = useState({ target: 'inputGate' as 'inputGate' | 'outputGate', steps: 400, speed: 800 });
+  const [lastLoadedTarget, setLastLoadedTarget] = useState<string | null>(null);
   const [sensorCal, setSensorCal] = useState({ id: 'input', debounceMs: 100 });
+
+  useEffect(() => {
+    const activeGate = data[gateCal.target];
+    if (activeGate && lastLoadedTarget !== gateCal.target) {
+      setGateCal(prev => ({
+        ...prev,
+        steps: activeGate.stepsToOpen || 400,
+        speed: activeGate.speed || 800
+      }));
+      setLastLoadedTarget(gateCal.target);
+    }
+  }, [gateCal.target, data, lastLoadedTarget]);
 
   const isManual = data.mode === 'MANUEL';
   const timeLeft = 30; // Static for now
@@ -501,11 +514,11 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">1. Hedef Kapı</label>
                                      <div className="flex gap-1 bg-[#0D1016] p-1 rounded border border-[#374151]">
                                         <button 
-                                          onClick={() => setGateCal(prev => ({ ...prev, target: 'inputGate' }))}
+                                          onClick={() => { setGateCal(prev => ({ ...prev, target: 'inputGate' })); setLastLoadedTarget(null); }}
                                           className={cn("flex-1 py-1.5 text-[9px] font-bold rounded transition-all", gateCal.target === 'inputGate' ? "bg-[#1C2029] text-gray-100 shadow-sm border border-[#374151]" : "text-gray-500 hover:text-gray-400")}
                                         >GİRİŞ KAPISI</button>
                                         <button 
-                                          onClick={() => setGateCal(prev => ({ ...prev, target: 'outputGate' }))}
+                                          onClick={() => { setGateCal(prev => ({ ...prev, target: 'outputGate' })); setLastLoadedTarget(null); }}
                                           className={cn("flex-1 py-1.5 text-[9px] font-bold rounded transition-all", gateCal.target === 'outputGate' ? "bg-[#1C2029] text-gray-100 shadow-sm border border-[#374151]" : "text-gray-500 hover:text-gray-400")}
                                         >ÇIKIŞ KAPISI</button>
                                      </div>
@@ -550,13 +563,13 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">4. Manuel Hareket Testi</label>
                                         <div className="flex gap-2">
                                            <button 
-                                              onClick={() => operateGate(gateCal.target, -gateCal.steps)}
+                                              onClick={() => operateGate(gateCal.target, -gateCal.steps, gateCal.steps, gateCal.speed)}
                                               className="flex-1 py-2.5 bg-[#0D1016] hover:bg-[#1C2029] border border-[#374151] text-gray-300 text-[10px] font-bold rounded flex items-center justify-center gap-2 transition-all active:scale-95"
                                            >
                                               <ArrowUp size={12} /> KAPAT
                                            </button>
                                            <button 
-                                              onClick={() => operateGate(gateCal.target, gateCal.steps)}
+                                              onClick={() => operateGate(gateCal.target, gateCal.steps, gateCal.steps, gateCal.speed)}
                                               className="flex-1 py-2.5 bg-[#0D1016] hover:bg-[#1C2029] border border-[#374151] text-gray-300 text-[10px] font-bold rounded flex items-center justify-center gap-2 transition-all active:scale-95"
                                            >
                                               <ArrowDown size={12} /> AÇ
@@ -566,7 +579,7 @@ export const ManualControl: React.FC<ManualControlProps> = ({
                                      
                                      <div className="flex items-end">
                                         <button 
-                                          onClick={() => onUpdateSystemGate(gateCal.target, { ...data[gateCal.target], position: gateCal.steps })}
+                                          onClick={() => onUpdateSystemGate(gateCal.target, { stepsToOpen: gateCal.steps, stepsToClose: gateCal.steps, speed: gateCal.speed })}
                                           className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold rounded shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-2 transition-all active:scale-95"
                                         >
                                            <Save size={12} /> KAYDET

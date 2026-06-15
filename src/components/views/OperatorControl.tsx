@@ -12,7 +12,7 @@ interface OperatorControlProps {
   data: SystemData;
   setMode: (mode: SystemMode) => void;
   onStartAutoCycle: () => void;
-  operateGate: (target: 'inputGate' | 'outputGate', position: number) => void;
+  operateGate: (target: 'inputGate' | 'outputGate', position: number, steps?: number, speed?: number) => void;
   toggleValve: (id: number) => void;
   testValvePulse: (id: number, duration: number) => void;
   resetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;

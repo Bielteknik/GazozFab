@@ -532,13 +532,16 @@ async def handle_action(sid, data):
         position = payload.get('position', 0)
         is_open = (position > 0)
         
+        steps = payload.get('steps')
+        speed = payload.get('speed')
+        
         # Get pin and device for the gate
         gate = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = ?", (target,))
         if gate:
             target_device = gate['nanoId'] if gate['device'] == 'NANO' else gate['device']
             if not target_device or target_device == 'NANO':
                 target_device = 'GatesNano'
-            hw.control_gate(target, gate['pin'], is_open, target_device)
+            hw.control_gate(target, gate['pin'], is_open, target_device, steps=steps, speed=speed)
             db.execute("UPDATE gates SET position = ?, isOpen = ? WHERE id = ?", (position, 1 if is_open else 0, target))
             add_log(f"Kilit motoru çalıştırıldı ({target}) -> Pozisyon: {position}, {'AÇIK' if is_open else 'KAPALI'}")
 
