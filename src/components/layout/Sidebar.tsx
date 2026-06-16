@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Sliders, History, AlertTriangle, Settings, Server, ChevronLeft, ChevronRight, LogOut, UserCircle, Wrench, Maximize, Minimize } from 'lucide-react';
+import { LayoutDashboard, Sliders, History, AlertTriangle, Settings, Server, ChevronLeft, ChevronRight, LogOut, UserCircle, Wrench, Maximize, Minimize, Power } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SystemData } from '../../types/system';
 
@@ -8,9 +8,10 @@ interface SidebarProps {
   onChangeTab: (tab: string) => void;
   data: SystemData;
   onLogout: () => void;
+  onSoftReboot: () => void;
 }
 
-export function Sidebar({ currentTab, onChangeTab, data, onLogout }: SidebarProps) {
+export function Sidebar({ currentTab, onChangeTab, data, onLogout, onSoftReboot }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
 
@@ -175,15 +176,23 @@ export function Sidebar({ currentTab, onChangeTab, data, onLogout }: SidebarProp
         </button>
 
         <button 
-           disabled={isProcessActive}
-           title={isCollapsed ? (isProcessActive ? "Sistem Aktif - Çıkış Yapılamaz" : "Çıkış") : undefined}
+           title={isCollapsed ? "Sistemi Yeniden Başlat (Soft Reset)" : undefined}
+           onClick={onSoftReboot}
+           className={cn(
+             "w-full flex items-center mb-1.5 rounded text-[11px] font-bold transition-all text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10 border border-transparent",
+             isCollapsed ? "justify-center py-2 px-0" : "space-x-2 px-2 py-2"
+           )}
+        >
+          <Power size={16} />
+          {!isCollapsed && <span>Acil Reset</span>}
+        </button>
+
+        <button 
+           title={isCollapsed ? "Çıkış" : undefined}
            onClick={onLogout}
            className={cn(
-             "w-full flex items-center mt-1 rounded text-[11px] font-bold transition-all",
-             isCollapsed ? "justify-center py-2 px-0" : "space-x-2 px-2 py-2",
-             isProcessActive 
-               ? "text-gray-600 cursor-not-allowed opacity-50" 
-               : "text-red-500/70 hover:text-red-500 hover:bg-red-500/5"
+             "w-full flex items-center mt-1 rounded text-[11px] font-bold transition-all text-red-500/70 hover:text-red-500 hover:bg-red-500/5",
+             isCollapsed ? "justify-center py-2 px-0" : "space-x-2 px-2 py-2"
            )}
         >
           <LogOut size={16} />

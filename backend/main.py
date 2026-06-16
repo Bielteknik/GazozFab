@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import time
 import asyncio
@@ -138,6 +137,16 @@ def init_db():
             print("[DB] Schema check completed.")
         except Exception as e:
             print(f"[DB] Error checking schema: {e}")
+            
+    # Fresh boot safe reset
+    try:
+        db.execute("UPDATE system_state SET mode = 'BEKLEMEDE', autoState = 'BEKLEMEDE', activePrompt = NULL WHERE id = 1")
+        db.execute("UPDATE valves SET isOpen = 0")
+        db.execute("UPDATE gates SET isOpen = 0")
+        db.execute("DELETE FROM active_alerts")
+        print("[DB] Applied fresh boot safety reset to system state.")
+    except Exception as e:
+        print(f"[DB] Error applying fresh boot reset: {e}")
 
 # Helper to write logs to DB
 def add_log(message):
@@ -288,9 +297,21 @@ sio = socketio.AsyncServer(cors_allowed_origins="*")
 hw = HardwareManager()
 hw.db = db
 
+broadcast_pending = False
+
 def broadcast_callback():
     """Trigger update to all connected frontends."""
-    asyncio.create_task(sio.emit('STATE_UPDATE', get_full_state_sync()))
+    global broadcast_pending
+    broadcast_pending = True
+
+async def broadcast_loop():
+    global broadcast_pending
+    while True:
+        if broadcast_pending:
+            broadcast_pending = False
+            state = get_full_state_sync()
+            await sio.emit('STATE_UPDATE', state)
+        await asyncio.sleep(0.1) # Max 10 fps
 
 # Create Production Manager instance
 prod = ProductionManager(db, hw, broadcast_callback)
@@ -449,7 +470,15 @@ def handle_distance_read(distance_cm):
             ultrasonic_session["readings"].append(distance_cm)
 
 # Limit switch event callback from GatesNano (D9, D10)
+last_limit_triggers = {"inputGate": 0.0, "outputGate": 0.0}
+
 def handle_limit_switch_event(gate_id, is_open):
+    global last_limit_triggers
+    now = time.time()
+    if now - last_limit_triggers.get(gate_id, 0.0) < 0.5:
+        return
+    last_limit_triggers[gate_id] = now
+
     # Retrieve stepsToOpen to set position correctly
     gate_row = db.fetchone("SELECT stepsToOpen FROM gates WHERE id = ?", (gate_id,))
     steps_to_open = gate_row["stepsToOpen"] if (gate_row and gate_row["stepsToOpen"]) else 400
@@ -1091,6 +1120,7 @@ async def start_background_tasks(app):
     app['production_task'] = asyncio.create_task(prod.run_loop())
     app['tcp_task'] = asyncio.create_task(hw.start_tcp_server(host="0.0.0.0", port=1978))
     app['udp_task'] = asyncio.create_task(hw.start_udp_discovery_server(host="0.0.0.0", port=1978))
+    app['broadcast_task'] = asyncio.create_task(broadcast_loop())
 
 async def cleanup_background_tasks(app):
     app['serial_task'].cancel()
@@ -1098,12 +1128,14 @@ async def cleanup_background_tasks(app):
     app['production_task'].cancel()
     app['tcp_task'].cancel()
     app['udp_task'].cancel()
+    app['broadcast_task'].cancel()
     await asyncio.gather(
         app['serial_task'], 
         app['ultrasonic_task'], 
         app['production_task'], 
         app['tcp_task'], 
         app['udp_task'], 
+        app['broadcast_task'],
         return_exceptions=True
     )
     hw.cleanup()

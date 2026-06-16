@@ -11,9 +11,7 @@ import { cn } from '../../lib/utils';
 interface OperatorControlProps {
   data: SystemData;
   setMode: (mode: SystemMode) => void;
-  onStartAutoCycle: () => void;
   operateGate: (target: 'inputGate' | 'outputGate', position: number, steps?: number, speed?: number) => void;
-  toggleValve: (id: number) => void;
   testValvePulse: (id: number, duration: number) => void;
   resetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
   onSelectRecipe: (id: string) => void;
@@ -23,9 +21,7 @@ interface OperatorControlProps {
 export function OperatorControl({ 
   data, 
   setMode, 
-  onStartAutoCycle, 
   operateGate, 
-  toggleValve, 
   testValvePulse, 
   resetCounter, 
   onSelectRecipe, 

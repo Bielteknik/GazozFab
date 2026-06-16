@@ -22,8 +22,6 @@ export default function App() {
     acknowledgeStartup,
     acknowledgeFault,
     toggleValve,
-    setValveMode,
-    setValvePulseDuration,
     operateGate,
     toggleGateEnabled,
     triggerFault,
@@ -43,7 +41,6 @@ export default function App() {
     addGate,
     removeGate,
     toggleExtraGateEnabled,
-    operateExtraGate,
     addNano,
     removeNano,
     resetCounter,
@@ -60,10 +57,7 @@ export default function App() {
     startOperatorFill,
     resetGates,
     systemReset,
-    manualLogin,
     manualLogout,
-    manualToken,
-    manualExpires,
     softReboot,
     triggerManualUltrasonic
   } = useSocketState();
@@ -92,6 +86,7 @@ export default function App() {
         onChangeTab={setCurrentTab}
         data={data}
         onLogout={handleLogout}
+        onSoftReboot={handleSoftReboot}
       />
       
       <main className="flex-1 p-3 h-full overflow-hidden bg-[#0a0f18] flex flex-col">
@@ -115,9 +110,7 @@ export default function App() {
           <OperatorControl 
              data={data}
              setMode={setMode}
-             onStartAutoCycle={startAutoCycle}
              operateGate={operateGate}
-             toggleValve={toggleValve}
              testValvePulse={testValvePulse}
              resetCounter={resetCounter}
              onSelectRecipe={selectRecipe}
@@ -188,7 +181,6 @@ export default function App() {
              onSelectRecipe={selectRecipe}
              onUpdateValve={updateValve}
              onUpdateSensor={updateSensor}
-             onUpdateGate={updateGate}
              onUpdateSystemGate={updateSystemGate}
              onSystemReset={systemReset}
              onSoftReboot={handleSoftReboot}

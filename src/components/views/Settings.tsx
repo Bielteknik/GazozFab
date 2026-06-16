@@ -33,7 +33,6 @@ interface SettingsProps {
   onSelectRecipe: (id: string) => void;
   onUpdateValve: (id: number, updates: Partial<any>) => void;
   onUpdateSensor: (id: string, updates: Partial<any>) => void;
-  onUpdateGate: (id: string, updates: Partial<any>) => void;
   onUpdateSystemGate: (target: 'inputGate' | 'outputGate', updates: Partial<any>) => void;
   onSystemReset: () => void;
   onSoftReboot: () => void;
@@ -51,7 +50,6 @@ export function Settings({
   onSelectRecipe,
   onUpdateValve,
   onUpdateSensor,
-  onUpdateGate,
   onUpdateSystemGate,
   onSystemReset,
   onSoftReboot,

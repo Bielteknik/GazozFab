@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { SystemData, SystemMode, AutoState, ValveState, GateState, NanoState, SensorState, SystemConfig, Recipe } from '../types/system';
+import { SystemData, SystemMode, ValveState, GateState, NanoState, SensorState, SystemConfig, Recipe } from '../types/system';
 
 // Clean initial system state (factory defaults / no mock data)
 export const INITIAL_STATE: SystemData = {
@@ -88,7 +88,10 @@ export function useSocketState() {
     });
 
     newSocket.on('STATE_UPDATE', (newState: SystemData) => {
-      setData(newState);
+      setData(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(newState)) return prev;
+        return newState;
+      });
     });
 
     newSocket.on('AVAILABLE_PORTS', (ports: string[]) => {
