@@ -445,6 +445,31 @@ def handle_sensor_event(device_id, sensor_type):
         test_val = (state_row[test_key] or 0) + 1
         db.execute(f"UPDATE system_state SET {key} = ?, {test_key} = ? WHERE id = 1", (val, test_val))
         add_log(f"{'Giriş' if sensor_type == 'IN' else 'Çıkış'} Lazeri algılandı. Yeni Sayı: {val} (Test: {test_val})")
+        
+        # OTOMATİK ve MANUEL modlarda hedef şişe sayısına ulaşılınca kapıyı otomatik kapat
+        config_row = db.fetchone("SELECT recipeId FROM system_config WHERE id = 1")
+        if state_row["mode"] in ("OTOMATİK", "MANUEL") and config_row:
+            recipe = db.fetchone("SELECT targetCount FROM recipes WHERE id = ?", (config_row["recipeId"],))
+            if recipe:
+                target = recipe["targetCount"]
+                if sensor_type == "IN" and val >= target:
+                    gate_row = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'inputGate'")
+                    if gate_row:
+                        in_target = gate_row["nanoId"] if gate_row["device"] == "NANO" else gate_row["device"]
+                        if not in_target or in_target == "NANO": in_target = "GatesNano"
+                        hw.control_gate("inputGate", gate_row["pin"], False, in_target)
+                        db.execute("UPDATE gates SET isOpen = 0, position = 0 WHERE id = 'inputGate'")
+                        add_log(f"Giriş hedefi ({target}) tamamlandı, giriş kapısı otomatik kapatıldı.")
+                
+                elif sensor_type == "OUT" and val >= target:
+                    gate_row = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'outputGate'")
+                    if gate_row:
+                        out_target = gate_row["nanoId"] if gate_row["device"] == "NANO" else gate_row["device"]
+                        if not out_target or out_target == "NANO": out_target = "GatesNano"
+                        hw.control_gate("outputGate", gate_row["pin"], False, out_target)
+                        db.execute("UPDATE gates SET isOpen = 0, position = 0 WHERE id = 'outputGate'")
+                        add_log(f"Çıkış hedefi ({target}) tamamlandı, çıkış kapısı otomatik kapatıldı.")
+
         broadcast_callback()
 
 # Ultrasonic measurement session variables for averaging & relay trigger control

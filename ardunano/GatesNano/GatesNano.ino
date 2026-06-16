@@ -20,11 +20,16 @@ void (*resetFunc)(void) = 0; // Software reset function declaration
 // Lazer Sensör Durum Takip Değişkenleri (Doğru Debounce ve Değişim Algılama)
 int sensXState = HIGH; // Mevcut kararlı durum
 int sensYState = HIGH;
+int limitInState = LOW; // D11 Optik Switch (Giriş Kilidi)
 int lastReadingX = HIGH; // Son okunan anlık değer
 int lastReadingY = HIGH;
+int lastReadingLimit = LOW;
 unsigned long lastDebounceTimeX = 0;
 unsigned long lastDebounceTimeY = 0;
+unsigned long lastDebounceTimeLimit = 0;
 unsigned long debounceDelay = 50; // milisaniye
+
+int LIMIT_IN_PIN = 11; // Giriş Kapısı Optik Limit Switch (D11)
 
 // --- Fonksiyon Tanımlamaları ---
 void setupPins();
@@ -45,6 +50,7 @@ void setupPins() {
 
   pinMode(SENSOR_X, INPUT_PULLUP);
   pinMode(SENSOR_Y, INPUT_PULLUP);
+  pinMode(LIMIT_IN_PIN, INPUT); // Optik limit switch aktif 4.65V (HIGH) gönderiyor
 
   digitalWrite(
       ENABLE_PIN,
@@ -59,8 +65,10 @@ void setup() {
   // İlk durumları güncelle
   sensXState = digitalRead(SENSOR_X);
   sensYState = digitalRead(SENSOR_Y);
+  limitInState = digitalRead(LIMIT_IN_PIN);
   lastReadingX = sensXState;
   lastReadingY = sensYState;
+  lastReadingLimit = limitInState;
 
   delay(500);
 
@@ -117,6 +125,25 @@ void loop() {
     }
   }
   lastReadingY = readingY;
+
+  // 2.5 Optik Limit Switch (Giriş Kapısı - D11) Takibi
+  int readingLimit = digitalRead(LIMIT_IN_PIN);
+  if (readingLimit != lastReadingLimit) {
+    lastDebounceTimeLimit = millis();
+  }
+  if ((millis() - lastDebounceTimeLimit) > debounceDelay) {
+    if (readingLimit != limitInState) {
+      limitInState = readingLimit;
+      if (limitInState == HIGH) {
+        // HIGH: 4.65V -> Kapı Açık
+        Serial.println("EVENT:LIMIT:IN:OPEN");
+      } else {
+        // LOW -> Kapı Kapalı
+        Serial.println("EVENT:LIMIT:IN:CLOSED");
+      }
+    }
+  }
+  lastReadingLimit = readingLimit;
 
   // 3. Seri Porttan Gelen Komutları Oku (Non-blocking / Kesintisiz)
   readSerialNonBlocking();
