@@ -91,6 +91,9 @@ cleanup() {
     if [ ! -z "$BACKEND_PID" ]; then
         kill -9 $BACKEND_PID 2>/dev/null
     fi
+    if [ ! -z "$TAIL_PID" ]; then
+        kill -9 $TAIL_PID 2>/dev/null
+    fi
     
     # Portları kullanan alt süreçleri kesin olarak temizle
     PORT_8000_PID=$(lsof -t -i:8000)
@@ -141,20 +144,26 @@ until curl -s http://localhost:3000/ >/dev/null 2>&1 || nc -z localhost 3000 >/d
 done
 echo -e "${GREEN}[Frontend] Ön Yüz başarıyla açıldı ve hazır!${NC}"
 
+# Terminalde hata veya logları görebilmek için canlı izleme
+echo -e "${BLUE}[Terminal] Canlı sistem kayıtları başlatılıyor...${NC}"
+tail -f backend/backend.log frontend.log &
+TAIL_PID=$!
+
 # 3. Web Tarayıcısını Aç
 echo -e "${GREEN}[Sistem] Web tarayıcısı otomatik açılıyor...${NC}"
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    open http://localhost:3000
+    # -W: tarayıcı kapanana kadar bekle
+    open -W http://localhost:3000
 else
     # Linux (Pi 5) üzerinde çalışıyorsak tam ekran modunda aç
+    # (Arka plana atılmayan komut, tarayıcı kapanana kadar bash scriptini bekletir)
     if command -v chromium-browser &> /dev/null; then
-        chromium-browser --app=http://localhost:3000 --start-fullscreen --noerrdialogs --disable-infobars &
+        chromium-browser --app=http://localhost:3000 --start-fullscreen --noerrdialogs --disable-infobars
     elif command -v chromium &> /dev/null; then
-        chromium --app=http://localhost:3000 --start-fullscreen --noerrdialogs --disable-infobars &
+        chromium --app=http://localhost:3000 --start-fullscreen --noerrdialogs --disable-infobars
     else
-        xdg-open http://localhost:3000 &
+        xdg-open http://localhost:3000
+        # Fallback
+        wait $BACKEND_PID $FRONTEND_PID
     fi
 fi
-
-# Süreçlerin bitmesini bekle (Script'in açık kalması ve CTRL+C ile sonlanması için)
-wait $BACKEND_PID $FRONTEND_PID

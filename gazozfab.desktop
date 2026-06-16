@@ -3,6 +3,6 @@ Type=Application
 Name=GazozFab Otomasyonu
 Comment=Starts GazozFab backend and frontend on boot, then opens browser
 Exec=/bin/bash -c "cd /home/bielteknik/GazozFab && ./start.sh"
-Terminal=false
+Terminal=true
 Categories=Development;
 StartupNotify=false
