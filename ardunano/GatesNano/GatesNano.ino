@@ -58,8 +58,8 @@ void setupPins() {
   pinMode(Y_DIR, OUTPUT);
   pinMode(ENABLE_PIN, OUTPUT);
 
-  pinMode(SENSOR_X, INPUT_PULLUP);
-  pinMode(SENSOR_Y, INPUT_PULLUP);
+  pinMode(SENSOR_X, INPUT); // 10k seri direnç eklendiği için dahili pull-up kapalı
+  pinMode(SENSOR_Y, INPUT); // 10k seri direnç eklendiği için dahili pull-up kapalı
   pinMode(LIMIT_IN_PIN, INPUT);  // Giriş optik limit switch
   pinMode(LIMIT_OUT_PIN, INPUT); // Çıkış optik limit switch
 
