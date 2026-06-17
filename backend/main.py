@@ -469,6 +469,17 @@ def handle_sensor_event(device_id, sensor_type):
                         hw.control_gate("outputGate", gate_row["pin"], False, out_target)
                         db.execute("UPDATE gates SET isOpen = 0, position = 0 WHERE id = 'outputGate'")
                         add_log(f"Çıkış hedefi ({target}) tamamlandı, çıkış kapısı otomatik kapatıldı.")
+                        
+                    if state_row["mode"] == "MANUEL":
+                        db.execute("UPDATE system_state SET inputCount = 0, outputCount = 0 WHERE id = 1")
+                        add_log("Operatör döngüsü tamamlandı, sayaçlar yeni döngü için sıfırlandı.")
+                        in_gate_row = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'inputGate'")
+                        if in_gate_row:
+                            in_target = in_gate_row["nanoId"] if in_gate_row["device"] == "NANO" else in_gate_row["device"]
+                            if not in_target or in_target == "NANO": in_target = "GatesNano"
+                            hw.control_gate("inputGate", in_gate_row["pin"], True, in_target)
+                            db.execute("UPDATE gates SET isOpen = 1, position = 100 WHERE id = 'inputGate'")
+                            add_log("Yeni döngü için giriş kapısı otomatik açıldı.")
 
         broadcast_callback()
 
@@ -827,6 +838,20 @@ async def handle_action(sid, data):
             else:
                 val = 0
             db.execute(f"UPDATE system_state SET {key} = ? WHERE id = 1", (val,))
+            
+            if op == 'reset' and row.get("mode") == "MANUEL":
+                gate_row = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'outputGate'")
+                if gate_row:
+                    out_target = gate_row["nanoId"] if gate_row["device"] == "NANO" else gate_row["device"]
+                    if not out_target or out_target == "NANO": out_target = "GatesNano"
+                    hw.control_gate("outputGate", gate_row["pin"], False, out_target)
+                    db.execute("UPDATE gates SET isOpen = 0, position = 0 WHERE id = 'outputGate'")
+                in_gate_row = db.fetchone("SELECT pin, device, nanoId FROM gates WHERE id = 'inputGate'")
+                if in_gate_row:
+                    in_target = in_gate_row["nanoId"] if in_gate_row["device"] == "NANO" else in_gate_row["device"]
+                    if not in_target or in_target == "NANO": in_target = "GatesNano"
+                    hw.control_gate("inputGate", in_gate_row["pin"], True, in_target)
+                    db.execute("UPDATE gates SET isOpen = 1, position = 100 WHERE id = 'inputGate'")
             add_log(f"Üretim sayacı güncellendi ({target}): {op} -> {val}")
 
     elif action_type == 'SELECT_RECIPE':
