@@ -193,10 +193,10 @@ INSERT OR IGNORE INTO gates (
 
 -- Varsayılan sayaç sensörlerini oluştur
 INSERT OR IGNORE INTO sensors (id, name, type, pin, enabled, device, debounceMs, resistorType) 
-VALUES ('SENS-IN', 'Giriş Lazeri', 'INPUT', '4', 1, 'GatesNano', 50, 'NONE');
+VALUES ('SENS-IN', 'Giriş Lazeri', 'INPUT', '14', 1, 'GatesNano', 50, 'NONE');
 
 INSERT OR IGNORE INTO sensors (id, name, type, pin, enabled, device, debounceMs, resistorType) 
-VALUES ('SENS-OUT', 'Çıkış Lazeri', 'OUTPUT', '7', 1, 'GatesNano', 50, 'NONE');
+VALUES ('SENS-OUT', 'Çıkış Lazeri', 'OUTPUT', '15', 1, 'GatesNano', 50, 'NONE');
 
 -- Varsayılan valfleri oluştur (8 Valf - Active Low / relayInversion = 1)
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
