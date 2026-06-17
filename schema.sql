@@ -189,7 +189,7 @@ INSERT OR IGNORE INTO gates (
 INSERT OR IGNORE INTO gates (
     id, name, pin, dirPin, enablePin, stepsToOpen, stepsToClose, 
     speed, isOpen, enabled, device, nanoId
-) VALUES ('outputGate', 'Çıkış Kapısı', '6', '3', '8', 400, 400, 800, 0, 1, 'NANO', 'GatesNano');
+) VALUES ('outputGate', 'Çıkış Kapısı', '6', '3', '8', 600, 600, 800, 0, 1, 'NANO', 'GatesNano');
 
 -- Varsayılan sayaç sensörlerini oluştur
 INSERT OR IGNORE INTO sensors (id, name, type, pin, enabled, device, debounceMs, resistorType) 
@@ -200,23 +200,23 @@ VALUES ('SENS-OUT', 'Çıkış Lazeri', 'OUTPUT', '15', 1, 'GatesNano', 50, 'NON
 
 -- Varsayılan valfleri oluştur (8 Valf - Active Low / relayInversion = 1)
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (10, 'Vana 1', '2', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (10, 'Vana 1', '2', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (11, 'Vana 2', '3', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (11, 'Vana 2', '3', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (12, 'Vana 3', '4', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (12, 'Vana 3', '4', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (13, 'Vana 4', '5', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (13, 'Vana 4', '5', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (14, 'Vana 5', '6', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (14, 'Vana 5', '6', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (15, 'Vana 6', '8', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (15, 'Vana 6', '8', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (16, 'Vana 7', '9', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (16, 'Vana 7', '9', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 INSERT OR IGNORE INTO valves (id, name, pin, enabled, isOpen, mode, pulseDuration, device, nanoId, relayInversion) 
-VALUES (17, 'Vana 8', '10', 1, 0, 'CONTINUOUS', 1000, 'NANO', 'ValvesNano', 0);
+VALUES (17, 'Vana 8', '10', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 
 -- Varsayılan bir adet reçete tohumla
 INSERT OR IGNORE INTO recipes (id, name, description, targetCount, fillTimeMs, volumeMl, settlingTimeMs, dripWaitTimeMs, valveDurations)
-VALUES ('default_recipe', 'Standart 8li Reçete', 'Tüm valflerin 3 saniye açık kalacağı standart 8 şişelik dolum reçetesi.', 8, 3000, 250, 150, 150, '{"10":3000,"11":3000,"12":3000,"13":3000,"14":3000,"15":3000,"16":3000,"17":3000}');
+VALUES ('default_recipe', 'Standart 8li Reçete', 'Tüm valflerin 660 saniye açık kalacağı standart 8 şişelik dolum reçetesi.', 8, 660, 250, 150, 150, '{"10":660,"11":660,"12":660,"13":660,"14":660,"15":660,"16":660,"17":660}');
 
