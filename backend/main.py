@@ -432,7 +432,7 @@ last_sensor_triggers = {"IN": 0.0, "OUT": 0.0}
 def handle_sensor_event(device_id, sensor_type):
     global last_sensor_triggers
     now = time.time()
-    if now - last_sensor_triggers.get(sensor_type, 0.0) < 0.3:
+    if now - last_sensor_triggers.get(sensor_type, 0.0) < 0.05:
         return
     last_sensor_triggers[sensor_type] = now
 
