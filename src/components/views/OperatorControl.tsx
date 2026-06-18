@@ -6,6 +6,9 @@ import {
   Unlock, Shield, Target, RefreshCw, Lock, Droplet, Cylinder, UserCheck,
   ArrowUp, ArrowDown
 } from 'lucide-react';
+import { RecipeSelector } from './shared/RecipeSelector';
+import { SystemMetricsRightPanel } from './shared/SystemMetricsRightPanel';
+import { TerminalTabsPanel } from './shared/TerminalTabsPanel';
 import { cn } from '../../lib/utils';
 
 interface OperatorControlProps {
@@ -196,48 +199,11 @@ export function OperatorControl({
       </div>
 
       {/* Recipe Selector - Kept same as Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 flex-shrink-0">
-        {data.recipes.length > 0 ? (
-          data.recipes.map((recipe) => (
-            <button
-              key={recipe.id}
-              disabled={isAuto || isWashing}
-              onClick={() => onSelectRecipe(recipe.id)}
-              className={cn(
-                "p-2 rounded border-2 transition-all flex flex-col items-start gap-1 relative overflow-hidden text-left w-full",
-                data.config.recipeId === recipe.id 
-                  ? "bg-blue-900/20 border-blue-500 ring-4 ring-blue-500/10" 
-                  : "bg-[#151921] border-[#2D333F] hover:border-gray-500",
-                (isAuto || isWashing) && "opacity-60 cursor-not-allowed"
-              )}
-            >
-              <div className="flex justify-between w-full items-center">
-                <span className={cn("text-xs font-bold truncate", data.config.recipeId === recipe.id ? "text-blue-400" : "text-white")}>
-                  {recipe.name}
-                </span>
-                {data.config.recipeId === recipe.id && (
-                  <div className="p-0.5 bg-blue-500 rounded-full flex-shrink-0">
-                    <Shield size={8} className="text-white" />
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-3 mt-1 font-mono text-[9px]">
-                <div className="flex items-center gap-1 text-gray-400">
-                   <Target size={10} /> {recipe.targetCount} Adet
-                </div>
-                <div className="flex items-center gap-1 text-gray-400">
-                   <RefreshCw size={10} /> {recipe.fillTimeMs/1000}s
-                </div>
-              </div>
-            </button>
-          ))
-        ) : (
-          <div className="col-span-full bg-[#151921] border border-dashed border-gray-700/50 rounded p-2 text-center text-xs text-gray-500 font-bold flex items-center justify-center gap-2 h-[48px] select-none">
-            <AlertTriangle size={14} className="text-amber-500/70" />
-            <span>Sistemde tanımlı reçete bulunmuyor. Ayarlar sayfasından reçete ekleyin.</span>
-          </div>
-        )}
-      </div>
+      <RecipeSelector 
+        data={data} 
+        disabled={isAuto || isWashing} 
+        onSelectRecipe={onSelectRecipe} 
+      />
 
       {/* Main Flow Visualization - Same layout as Dashboard */}
       <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-y-auto">
@@ -439,83 +405,15 @@ export function OperatorControl({
                           )}
                        </div>
                     ))}
-                 </div>
+                  </div>
 
-              </div>
-           </div>
-
-           {/* System Messages & Alerts Tabs - INSIDE Left Column to match Dashboard layout exactly */}
-           <div className="w-full bg-[#0A0D14] border-t border-[#2D333F] h-40 flex flex-col mt-auto flex-shrink-0 overflow-hidden">
-             {/* Tab Buttons */}
-             <div className="flex border-b border-[#1F2937] bg-[#0C0F16] shrink-0">
-               <button 
-                  onClick={() => setActiveMsgTab('LOGS')}
-                  className={cn(
-                    "px-4 py-1.5 text-[9px] font-bold transition-all border-b-2 flex items-center gap-1.5",
-                    activeMsgTab === 'LOGS' 
-                      ? "border-emerald-500 text-emerald-400 bg-emerald-500/5 font-black" 
-                      : "border-transparent text-gray-500 hover:text-gray-300"
-                  )}
-               >
-                  HABERLEŞME MESAJLARI
-               </button>
-               <button 
-                  onClick={() => setActiveMsgTab('ALERTS')}
-                  className={cn(
-                    "px-4 py-1.5 text-[9px] font-bold transition-all border-b-2 flex items-center gap-1.5",
-                    activeMsgTab === 'ALERTS' 
-                      ? "border-orange-500 text-orange-400 bg-orange-500/5 font-black" 
-                      : "border-transparent text-gray-500 hover:text-gray-300"
-                  )}
-               >
-                  AKTİF UYARILAR
-                  {data?.activeAlerts?.filter(a => !a.resolved).length > 0 && (
-                    <span className="px-1.5 py-0.5 bg-orange-600 text-white rounded-full text-[8px] font-bold animate-pulse leading-none">
-                      {data.activeAlerts.filter(a => !a.resolved).length}
-                    </span>
-                  )}
-               </button>
-             </div>
-
-             {/* Tab Content */}
-             <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-                {activeMsgTab === 'LOGS' ? (
-                   <div className="space-y-1 font-mono text-[9px]">
-                     {data.terminalLogs.slice(0, 30).map((log, i) => (
-                       <div key={i} className={log.includes('ERR') ? 'text-red-400' : 'text-emerald-400/80'}>{log}</div>
-                     ))}
-                   </div>
-                ) : (
-                   <div className="space-y-1.5 font-mono text-[9px]">
-                      {data?.activeAlerts?.filter(a => !a.resolved).length === 0 ? (
-                         <div className="h-full py-4 flex items-center justify-center text-gray-500 text-[10px] font-mono">
-                            AKTIF_ALARM_YOK
-                         </div>
-                      ) : (
-                         data?.activeAlerts?.filter(a => !a.resolved).map((alert, i) => (
-                            <motion.div 
-                              initial={{ opacity: 0, x: 20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              key={alert.id || i} 
-                              className={cn(
-                                "border p-2 rounded text-[10px] font-mono flex items-start",
-                                alert.severity === 'CRITICAL' ? "bg-red-900/30 border-red-800 text-red-400" : "bg-amber-900/30 border-amber-800 text-amber-400"
-                              )}
-                            >
-                              <AlertTriangle size={12} className="mr-2 shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-bold">{alert.code}</span>
-                                <div className="mt-0.5 opacity-80">{alert.message}</div>
-                              </div>
-                            </motion.div>
-                         ))
-                      )}
-                   </div>
-                )}
-             </div>
-           </div>
-
-        </div>
+                  {/* System Messages & Alerts Tabs - INSIDE Left Column to match Dashboard layout exactly */}
+            <TerminalTabsPanel 
+               data={data} 
+               activeMsgTab={activeMsgTab} 
+               setActiveMsgTab={setActiveMsgTab} 
+            />
+         </div>
         
         {/* Right Column: Status & Syrup Tank details - EXACTLY like Dashboard */}
         <div className="col-span-12 lg:col-span-4 flex flex-col space-y-3 min-h-0">
@@ -576,99 +474,21 @@ export function OperatorControl({
                              </div>
                           )}
                        </div>
+                     </div>
+                  );
+               })()}
+            </div>
 
-                       {/* Parameter details & status (Right Side) */}
-                       <div className="flex-1 flex flex-col justify-between min-w-0">
-                          <div className="space-y-1">
-                             <div className="flex justify-between items-center text-[9px] border-b border-gray-800/40 pb-0.5">
-                                <span className="text-gray-500">Cihaz:</span>
-                                <span className="font-mono text-gray-300 truncate max-w-[80px]">
-                                   {data.config.ultrasonicDevice === 'RASPI' ? 'Pi 5 dahili' : (data.config.ultrasonicDevice || 'Bilinmiyor')}
-                                </span>
-                             </div>
-                             <div className="flex justify-between items-center text-[9px] border-b border-gray-800/40 pb-0.5">
-                                <span className="text-gray-500">TRIG/ECHO:</span>
-                                <span className="font-mono text-orange-400">
-                                   {data.config.ultrasonicTrigPin || '-'} / {data.config.ultrasonicEchoPin || '-'}
-                                </span>
-                             </div>
-                             <div className="flex justify-between items-center text-[9px] border-b border-gray-800/40 pb-0.5">
-                                <span className="text-gray-500">Mesafe:</span>
-                                <span className="font-mono text-gray-300">{levelCm} cm</span>
-                             </div>
-                             <div className="flex justify-between items-center text-[9px] border-b border-gray-800/40 pb-0.5">
-                                <span className="text-gray-500">Kazan/Sıvı:</span>
-                                <span className="font-mono text-blue-400">{liquidH}/{maxH} cm</span>
-                             </div>
-                             <div className="flex justify-between items-center text-[9px] border-b border-gray-800/40 pb-0.5">
-                                <span className="text-gray-500">Filtre:</span>
-                                <span className="font-mono text-gray-400">{data.config.ultrasonicDebounceMs || 100} ms</span>
-                             </div>
-                          </div>
-
-                          <div className={cn(
-                             "p-1.5 rounded border text-[8px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 mt-2 text-center",
-                             isCritical 
-                                ? "bg-red-500/10 border-red-500/20 text-red-400 animate-pulse" 
-                                : "bg-emerald-500/5 border-emerald-500/10 text-emerald-500"
-                          )}>
-                             {isCritical ? (
-                                <><AlertTriangle size={10} /> Kritik Seviye! Blokaj Aktif</>
-                             ) : (
-                                'Kazan Seviye: Normal'
-                             )}
-                          </div>
-                       </div>
-                    </div>
-                 );
-              })()}
-           </div>
-           
-           {/* Cycle Metrics & OEE - Exact same as Dashboard */}
-           <div className="bg-[#151921] p-3 rounded border border-[#2D333F] flex-shrink-0 shadow-lg">
-              <h2 className="text-[10px] uppercase font-bold text-gray-400 mb-2 border-l-2 border-blue-500 pl-2 flex items-center justify-between">
-                 <span>Mevcut Üretim Planı & OEE</span>
-              </h2>
-              <div className="space-y-1.5 mt-2">
-                 <div className="flex justify-between items-center text-[10px] border-b border-gray-800/40 pb-1">
-                    <span className="text-gray-500">Seçili Reçete:</span>
-                    <span className="font-mono text-white truncate max-w-[220px]">{activeRecipe.name}</span>
-                 </div>
-                 <div className="flex justify-between items-center text-[10px] border-b border-gray-800/40 pb-1">
-                    <span className="text-gray-500">Hedef Şişe:</span>
-                    <span className="font-mono text-blue-400">{Math.min(activeRecipe.targetCount, data.valves.filter(v=>v.enabled).length)} Adet</span>
-                 </div>
-                 
-                 <div className="flex justify-between items-center pt-2 mt-2 gap-2">
-                    <div className="flex-1 bg-[#0D1016] border border-[#1F2937] rounded p-2 text-center shadow-inner">
-                       <div className="text-[8px] text-gray-500 font-bold mb-1">HIZ (BPM)</div>
-                       <div className="text-lg font-mono text-emerald-400 leading-none">
-                          {data.cycleHistory.length > 0 ? Math.round((60000 / (data.cycleHistory.slice(0,5).reduce((a,c)=>a+c.duration,0)/Math.min(data.cycleHistory.length,5))) * data.cycleHistory[0].outputCount) : 0}
-                       </div>
-                    </div>
-                    <div className="flex-1 bg-[#0D1016] border border-[#1F2937] rounded p-2 text-center shadow-inner">
-                       <div className="text-[8px] text-gray-500 font-bold mb-1">OEE SKORU</div>
-                       <div className={cn("text-lg font-mono leading-none", data.mode === 'ARIZA' ? "text-red-500" : "text-blue-400")}>
-                          {(() => {
-                             if (data.mode === 'ARIZA') return '0%';
-                             if (data.cycleHistory.length === 0) {
-                                return data.mode === 'OTOMATİK' ? '95%' : '85%';
-                             }
-                             const successful = data.cycleHistory.filter(c => c.validationStatus === 'PASS').length;
-                             const quality = successful / data.cycleHistory.length;
-                             const availability = data.activeAlerts.length > 0 ? 0.85 : 0.98;
-                             const performance = 0.96;
-                             return `${Math.round(availability * performance * quality * 100)}%`;
-                          })()}
-                       </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-
+            <SystemMetricsRightPanel 
+               data={data} 
+               activeRecipe={activeRecipe} 
+               activeMsgTab={activeMsgTab} 
+               setActiveMsgTab={setActiveMsgTab} 
+            />
+         </div>
       </div>
-
+    </div>
+    </div>
     </div>
   );
 }

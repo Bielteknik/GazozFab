@@ -6,6 +6,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { SystemData, SystemMode, Recipe, SensorState, GateState, SystemConfig } from '../../types/system';
+import { ManualCalibrationValves } from './manual/ManualCalibrationValves';
+import { ManualCalibrationGates } from './manual/ManualCalibrationGates';
+import { ManualCalibrationSensors } from './manual/ManualCalibrationSensors';
+import { ManualCalibrationUltrasonic } from './manual/ManualCalibrationUltrasonic';
 
 interface ManualControlProps {
   data: SystemData;
@@ -394,525 +398,50 @@ export const ManualControl: React.FC<ManualControlProps> = ({
 
                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                           {calSubTab === 'valves' && (
-                            <div className="space-y-8 animate-in fade-in duration-300 max-w-2xl">
-                               <div className="grid grid-cols-2 gap-8">
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">1. Reçete Seçimi</label>
-                                    <select 
-                                      value={selectedRecipeId || ''}
-                                      onChange={(e) => setSelectedRecipeId(e.target.value)}
-                                      className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50"
-                                    >
-                                      {(data.recipes || []).map(r => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">2. Test Edilecek Vana</label>
-                                    <select 
-                                      value={selectedValveId || ''}
-                                      onChange={(e) => setSelectedValveId(Number(e.target.value))}
-                                      className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50"
-                                    >
-                                      {(data.valves || []).filter(v => v.enabled).map(v => (
-                                        <option key={v.id} value={v.id}>{v.name || `Vana ${v.id}`}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                               </div>
-
-                               <div className="pt-6 border-t border-[#2D333F] space-y-6">
-                                  <div className="flex items-center justify-between">
-                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">3. Test Süresi (ms)</label>
-                                     <div className="flex gap-1.5">
-                                        {[500, 1000, 1500, 2000, 3000].map(ms => (
-                                          <button 
-                                            key={ms}
-                                            onClick={() => setTestDuration(ms)}
-                                            className={cn("px-2 py-1 rounded text-[9px] font-bold transition-all border", testDuration === ms ? "bg-orange-500/10 border-orange-500 text-orange-400" : "bg-transparent border-gray-800 text-gray-600 hover:border-gray-700")}
-                                          >
-                                            {ms}ms
-                                          </button>
-                                        ))}
-                                     </div>
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-4">
-                                     <div className="relative flex-1">
-                                        <input 
-                                          type="number"
-                                          value={testDuration}
-                                          onChange={(e) => setTestDuration(Number(e.target.value))}
-                                          className="w-full bg-[#0D1016] border border-[#374151] rounded px-4 py-3 text-xl font-mono text-orange-400 font-black outline-none focus:border-orange-500/50"
-                                        />
-                                     </div>
-                                     
-                                     <div className="flex gap-2">
-                                        <button 
-                                          disabled={!selectedValveId}
-                                          onClick={() => selectedValveId && testValvePulse(selectedValveId, testDuration)}
-                                          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 text-white text-[10px] font-bold rounded shadow-lg shadow-blue-900/20 flex items-center gap-2 transition-all active:scale-95"
-                                        >
-                                          <Play size={14} /> TEST ET
-                                        </button>
-                                        <button 
-                                          disabled={!selectedRecipeId || testDuration === selectedRecipe?.fillTimeMs}
-                                          onClick={() => selectedRecipeId && onUpdateRecipe(selectedRecipeId, { fillTimeMs: testDuration })}
-                                          className="px-6 py-3 border border-emerald-600/50 bg-emerald-900/10 hover:bg-emerald-800/20 text-emerald-500 text-[10px] font-bold rounded flex items-center gap-2 transition-all active:scale-95"
-                                        >
-                                          <RefreshCw size={14} /> GÜNCELLE
-                                        </button>
-                                     </div>
-                                  </div>
-                               </div>
-
-                               {/* Akış Hızı Kalibrasyon Hesaplayıcı */}
-                               <div className="pt-6 border-t border-[#2D333F] space-y-4">
-                                  <div className="flex items-center gap-2">
-                                     <Droplet size={14} className="text-orange-500" />
-                                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Akış Hızı Kalibrasyon Hesaplayıcı</h4>
-                                  </div>
-                                  
-                                  <div className="bg-[#1C2029]/30 p-4 border border-[#2D333F] rounded space-y-4">
-                                     <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                           <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">4. Ölçülen Sıvı Miktarı (ml)</label>
-                                           <input 
-                                              type="number"
-                                              value={measuredMl}
-                                              onChange={(e) => setMeasuredMl(e.target.value === '' ? '' : Number(e.target.value))}
-                                              placeholder="Örn: 5"
-                                              className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-orange-400 outline-none focus:border-orange-500/50 font-mono"
-                                           />
-                                        </div>
-                                        <div className="space-y-2">
-                                           <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Hesaplanan Akış Hızı</label>
-                                           <div className="h-8 flex items-center">
-                                              {measuredMl !== '' && Number(measuredMl) > 0 ? (
-                                                 <span className="text-xs font-mono font-bold text-emerald-400">
-                                                    {(Number(measuredMl) / testDuration).toFixed(5)} ml/ms <span className="text-gray-500">({((Number(measuredMl) / testDuration) * 1000).toFixed(1)} ml/sn)</span>
-                                                 </span>
-                                              ) : (
-                                                 <span className="text-xs text-gray-600 font-bold italic">Süre ve sıvı miktarı bekleniyor...</span>
-                                              )}
-                                           </div>
-                                        </div>
-                                     </div>
-
-                                     {measuredMl !== '' && Number(measuredMl) > 0 && selectedRecipe && (
-                                        <div className="pt-4 border-t border-[#2D333F]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                           <div className="space-y-1">
-                                              <div className="text-[9px] font-bold text-gray-500 uppercase">Önerilen Reçete Süresi ({selectedRecipe.name})</div>
-                                              <div className="text-xs font-bold text-gray-200">
-                                                 Hedef Hacim: <span className="text-orange-400">{selectedRecipe.volumeMl} ml</span> | Hesaplanan Süre: <span className="text-blue-400">{Math.round(selectedRecipe.volumeMl / (Number(measuredMl) / testDuration))} ms</span>
-                                              </div>
-                                           </div>
-                                           <button
-                                              onClick={() => {
-                                                 const flowRate = Number(measuredMl) / testDuration;
-                                                 const calculatedDuration = Math.round(selectedRecipe.volumeMl / flowRate);
-                                                 const currentValveDurations = selectedRecipe.valveDurations || {};
-                                                 const updatedDurations = {
-                                                    ...currentValveDurations,
-                                                    [selectedValveId || 0]: calculatedDuration
-                                                 };
-                                                 onUpdateRecipe(selectedRecipe.id, { valveDurations: updatedDurations });
-                                                 const targetValve = data.valves.find(v => v.id === selectedValveId);
-                                                 const valveName = targetValve ? targetValve.name : `Vana ${selectedValveId}`;
-                                                 alert(`${valveName} için ${calculatedDuration} ms süresi '${selectedRecipe.name}' reçetesine kaydedildi!`);
-                                              }}
-                                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold rounded flex items-center gap-1.5 transition-all active:scale-95"
-                                           >
-                                              <Save size={12} /> REÇETEYE UYGULA
-                                           </button>
-                                        </div>
-                                     )}
-                                  </div>
-                               </div>
-                            </div>
+                             <ManualCalibrationValves
+                               data={data}
+                               selectedRecipeId={selectedRecipeId}
+                               setSelectedRecipeId={setSelectedRecipeId}
+                               selectedValveId={selectedValveId}
+                               setSelectedValveId={setSelectedValveId}
+                               testDuration={testDuration}
+                               setTestDuration={setTestDuration}
+                               testValvePulse={testValvePulse}
+                               onUpdateRecipe={onUpdateRecipe}
+                               measuredMl={measuredMl}
+                               setMeasuredMl={setMeasuredMl}
+                               selectedRecipe={selectedRecipe}
+                             />
                           )}
 
                           {calSubTab === 'gates' && (
-                            <div className="space-y-8 animate-in fade-in duration-300 max-w-2xl">
-                               <div className="grid grid-cols-2 gap-8">
-                                  <div className="space-y-2">
-                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">1. Hedef Kapı</label>
-                                     <div className="flex gap-1 bg-[#0D1016] p-1 rounded border border-[#374151]">
-                                        <button 
-                                          onClick={() => { setGateCal(prev => ({ ...prev, target: 'inputGate' })); setLastLoadedTarget(null); }}
-                                          className={cn("flex-1 py-1.5 text-[9px] font-bold rounded transition-all", gateCal.target === 'inputGate' ? "bg-[#1C2029] text-gray-100 shadow-sm border border-[#374151]" : "text-gray-500 hover:text-gray-400")}
-                                        >GİRİŞ KAPISI</button>
-                                        <button 
-                                          onClick={() => { setGateCal(prev => ({ ...prev, target: 'outputGate' })); setLastLoadedTarget(null); }}
-                                          className={cn("flex-1 py-1.5 text-[9px] font-bold rounded transition-all", gateCal.target === 'outputGate' ? "bg-[#1C2029] text-gray-100 shadow-sm border border-[#374151]" : "text-gray-500 hover:text-gray-400")}
-                                        >ÇIKIŞ KAPISI</button>
-                                     </div>
-                                  </div>
-                                  <div className="space-y-2">
-                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">2. Kalibrasyon Adımı</label>
-                                     <input 
-                                       type="number"
-                                       value={gateCal.steps}
-                                       onChange={(e) => setGateCal(prev => ({ ...prev, steps: Number(e.target.value) }))}
-                                       className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                     />
-                                  </div>
-                               </div>
-
-                               <div className="pt-6 border-t border-[#2D333F] space-y-6">
-                                  <div className="grid grid-cols-2 gap-8">
-                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">3. Motor Hızı (Gecikme ms)</label>
-                                        <div className="flex gap-4 items-center">
-                                           <input 
-                                             type="range"
-                                             min="200"
-                                             max="2000"
-                                             step="50"
-                                             value={gateCal.speed}
-                                             onChange={(e) => setGateCal(prev => ({ ...prev, speed: Number(e.target.value) }))}
-                                             className="flex-1 accent-orange-500 h-1.5 bg-[#0D1016] rounded-lg appearance-none cursor-pointer"
-                                           />
-                                           <span className="text-[10px] font-mono text-orange-400 w-12">{gateCal.speed}µs</span>
-                                           <button 
-                                              onClick={() => sendNanoCommand('GatesNano', `s${gateCal.speed}`)}
-                                              className="p-1.5 bg-[#1C2029] hover:bg-[#2D333F] border border-[#374151] rounded text-gray-400 transition-all"
-                                              title="Hızı Uygula"
-                                           >
-                                              <RefreshCw size={12} />
-                                           </button>
-                                        </div>
-                                     </div>
-
-                                     <div className="space-y-3">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">4. Manuel Hareket Testi</label>
-                                        <div className="flex gap-2">
-                                           <button 
-                                              onClick={() => operateGate(gateCal.target, -Number(gateCal.steps), Number(gateCal.steps), Number(gateCal.speed))}
-                                              className="flex-1 py-2.5 bg-[#0D1016] hover:bg-[#1C2029] border border-[#374151] text-gray-300 text-[10px] font-bold rounded flex items-center justify-center gap-2 transition-all active:scale-95"
-                                           >
-                                              <ArrowUp size={12} /> KAPAT
-                                           </button>
-                                           <button 
-                                              onClick={() => operateGate(gateCal.target, Number(gateCal.steps), Number(gateCal.steps), Number(gateCal.speed))}
-                                              className="flex-1 py-2.5 bg-[#0D1016] hover:bg-[#1C2029] border border-[#374151] text-gray-300 text-[10px] font-bold rounded flex items-center justify-center gap-2 transition-all active:scale-95"
-                                           >
-                                              <ArrowDown size={12} /> AÇ
-                                           </button>
-                                        </div>
-                                     </div>
-                                     
-                                     <div className="flex items-end">
-                                        <button 
-                                          onClick={() => onUpdateSystemGate(gateCal.target, { stepsToOpen: gateCal.steps, stepsToClose: gateCal.steps, speed: gateCal.speed })}
-                                          className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold rounded shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-2 transition-all active:scale-95"
-                                        >
-                                           <Save size={12} /> KAYDET
-                                        </button>
-                                     </div>
-                                  </div>
-                               </div>
-                            </div>
+                             <ManualCalibrationGates
+                               gateCal={gateCal}
+                               setGateCal={setGateCal}
+                               setLastLoadedTarget={setLastLoadedTarget}
+                               sendNanoCommand={sendNanoCommand}
+                               operateGate={operateGate}
+                               onUpdateSystemGate={onUpdateSystemGate}
+                             />
                           )}
 
                           {calSubTab === 'sensors' && (
-                            <div className="space-y-8 animate-in fade-in duration-300 max-w-2xl">
-                               <div className="grid grid-cols-2 gap-8">
-                                  <div className="space-y-2">
-                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">1. Sensör Seçimi</label>
-                                     <select 
-                                        value={sensorCal.id}
-                                        onChange={(e) => setSensorCal(prev => ({ ...prev, id: e.target.value }))}
-                                        className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50"
-                                     >
-                                        {data.sensors.map(s => (
-                                           <option key={s.id} value={s.id}>{s.name}</option>
-                                        ))}
-                                     </select>
-                                  </div>
-                                  <div className="space-y-2">
-                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">2. Gecikme Süresi (Debounce ms)</label>
-                                     <input 
-                                       type="number"
-                                       value={sensorCal.debounceMs}
-                                       onChange={(e) => setSensorCal(prev => ({ ...prev, debounceMs: Number(e.target.value) }))}
-                                       className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                     />
-                                  </div>
-                               </div>
-
-                               <div className="pt-6 border-t border-[#2D333F] flex justify-end">
-                                  <button 
-                                     onClick={() => onUpdateSensor(sensorCal.id, { debounceMs: sensorCal.debounceMs })}
-                                     className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold rounded shadow-lg shadow-emerald-900/10 flex items-center gap-2 transition-all active:scale-95"
-                                  >
-                                     <Save size={12} /> HASSASİYETİ KAYDET
-                                  </button>
-                               </div>
-                            </div>
+                             <ManualCalibrationSensors
+                               data={data}
+                               sensorCal={sensorCal}
+                               setSensorCal={setSensorCal}
+                               onUpdateSensor={onUpdateSensor}
+                             />
                           )}
 
                           {calSubTab === 'ultrasonic' && (
-                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
-                                {/* Left Side: Configuration Controls */}
-                                <div className="space-y-4">
-                                   <div className="space-y-1">
-                                      <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">1. Bağlı Olduğu Donanım (Controller)</label>
-                                      <select 
-                                         value={data.config.ultrasonicDevice || 'RASPI'}
-                                         onChange={(e) => onUpdateConfig?.({ ultrasonicDevice: e.target.value })}
-                                         className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50"
-                                      >
-                                         <option value="RASPI">Raspberry Pi 5 (Dahili GPIO)</option>
-                                         {data.nanos.map(n => (
-                                            <option key={n.id} value={n.id}>{n.name} ({n.id})</option>
-                                         ))}
-                                      </select>
-                                   </div>
-
-                                   <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">2. TRIG PİN</label>
-                                         <input 
-                                            type="text"
-                                            value={data.config.ultrasonicTrigPin || ''}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicTrigPin: e.target.value })}
-                                            placeholder="Örn: 23, D6"
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs font-mono text-orange-400 outline-none focus:border-orange-500/50"
-                                         />
-                                      </div>
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">3. ECHO PİN</label>
-                                         <input 
-                                            type="text"
-                                            value={data.config.ultrasonicEchoPin || ''}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicEchoPin: e.target.value })}
-                                            placeholder="Örn: 24, D7"
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs font-mono text-orange-400 outline-none focus:border-orange-500/50"
-                                         />
-                                      </div>
-                                   </div>
-
-                                   <div className="grid grid-cols-3 gap-4">
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">4. Tank Boyu (cm)</label>
-                                         <input 
-                                            type="number"
-                                            value={data.config.ultrasonicMaxHeightCm || 100}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicMaxHeightCm: Number(e.target.value) })}
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                         />
-                                      </div>
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">5. Kritik Alt Limit (%)</label>
-                                         <input 
-                                            type="number"
-                                            value={data.config.ultrasonicCriticalLowPercent || 15}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicCriticalLowPercent: Number(e.target.value) })}
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                         />
-                                      </div>
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">6. Filtre Gecikmesi (ms)</label>
-                                         <input 
-                                            type="number"
-                                            value={data.config.ultrasonicDebounceMs || 100}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicDebounceMs: Number(e.target.value) })}
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                         />
-                                      </div>
-                                    </div>
-
-                                   <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">7. Ölçüm Yöntemi</label>
-                                         <select 
-                                            value={data.config.ultrasonicMeasurementType || 'CONTINUOUS'}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicMeasurementType: e.target.value as any })}
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50"
-                                         >
-                                            <option value="CONTINUOUS">Sürekli (Anlık) Ölçüm</option>
-                                            <option value="CYCLE">Döngü Sonrası (Her Döngü Bitişinde)</option>
-                                            <option value="CONSUMPTION">Hacim Tüketimine Göre (ml)</option>
-                                         </select>
-                                      </div>
-                                      <div className="space-y-1">
-                                         <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">8. Ölçüm Hacim Eşiği (ml)</label>
-                                         <input 
-                                            type="number"
-                                            value={data.config.ultrasonicMeasurementIntervalMl || 2000}
-                                            onChange={(e) => onUpdateConfig?.({ ultrasonicMeasurementIntervalMl: Number(e.target.value) })}
-                                            disabled={data.config.ultrasonicMeasurementType !== 'CONSUMPTION'}
-                                            className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono disabled:opacity-30"
-                                            placeholder="Örn: 2000"
-                                         />
-                                      </div>
-                                   </div>
-
-                                   <div className="border-t border-[#2D333F] pt-4 my-2 space-y-4">
-                                       <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Periyodik Ölçüm & Röle Kontrol Ayarları</div>
-                                       
-                                       <div className="grid grid-cols-2 gap-4">
-                                          <div className="space-y-1">
-                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Ölçüm Sıklığı (Dakika)</label>
-                                             <input 
-                                                type="number"
-                                                value={data.config.ultrasonicIntervalMin || 3}
-                                                onChange={(e) => onUpdateConfig?.({ ultrasonicIntervalMin: Number(e.target.value) })}
-                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                                min="1"
-                                             />
-                                          </div>
-                                          <div className="space-y-1">
-                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Sınır Mesafe (cm)</label>
-                                             <input 
-                                                type="number"
-                                                value={data.config.ultrasonicThresholdCm || 30}
-                                                onChange={(e) => onUpdateConfig?.({ ultrasonicThresholdCm: Number(e.target.value) })}
-                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                                min="1"
-                                             />
-                                          </div>
-                                       </div>
-
-                                       <div className="grid grid-cols-2 gap-4">
-                                          <div className="space-y-1">
-                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">GatesNano Röle Pini</label>
-                                             <input 
-                                                type="text"
-                                                value={data.config.ultrasonicRelayPin || '11'}
-                                                onChange={(e) => onUpdateConfig?.({ ultrasonicRelayPin: e.target.value })}
-                                                placeholder="Örn: 11, D11"
-                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-orange-400 outline-none focus:border-orange-500/50 font-mono"
-                                             />
-                                          </div>
-                                          <div className="space-y-1">
-                                             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Röle Açık Kalma Süresi (ms)</label>
-                                             <input 
-                                                type="number"
-                                                value={data.config.ultrasonicRelayDurationMs || 5000}
-                                                onChange={(e) => onUpdateConfig?.({ ultrasonicRelayDurationMs: Number(e.target.value) })}
-                                                className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs text-gray-200 outline-none focus:border-orange-500/50 font-mono"
-                                                min="100"
-                                                step="100"
-                                             />
-                                          </div>
-                                       </div>
-                                    </div>
-
-                                   <div className="bg-[#1C2029]/50 p-4 border border-[#2D333F] rounded space-y-3">
-                                      <div className="flex items-center justify-between">
-                                         <div className="text-[10px] font-bold text-gray-400 uppercase">Şerbet Tankı Kalibrasyon & Seviye Görünümü</div>
-                                         <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded text-[8px] font-bold tracking-widest">TEST / OKUMA</span>
-                                      </div>
-                                      <div className="space-y-1">
-                                         <div className="flex justify-between">
-                                            <span className="text-[9px] text-gray-500">Okunan Mesafe (Sensörden Uzaklık)</span>
-                                            <span className="text-[9px] font-mono font-bold text-orange-400">{simulatedDistance} cm</span>
-                                         </div>
-                                         <input 
-                                            type="range"
-                                            min="0"
-                                            max={data.config.ultrasonicMaxHeightCm || 100}
-                                            value={simulatedDistance}
-                                            onChange={(e) => setSimulatedDistance(Number(e.target.value))}
-                                            className="w-full accent-orange-500 h-1 bg-[#0D1016] rounded-lg appearance-none cursor-pointer"
-                                         />
-                                      </div>
-                                      <p className="text-[8px] text-gray-600 leading-normal italic">
-                                         * Bu sürgü, fiziksel ultrasonik sensörün tank tavanından sıvı yüzeyine olan mesafesini kalibre etmek veya test etmek için kullanılır. Sıvı yüksekliği arttıkça okunan mesafe düşer.
-                                      </p>
-
-                                      <div className="border-t border-[#2D333F] pt-3 flex flex-col gap-2">
-                                         <div className="flex items-center justify-between text-[9px]">
-                                            <span className="text-gray-500">Fiziksel Sensör Son Değeri:</span>
-                                            <span className="font-mono font-bold text-blue-400">{data.tankLevelCm ?? '-'} cm</span>
-                                         </div>
-                                         <button
-                                            type="button"
-                                            onClick={() => onTriggerManualUltrasonic?.()}
-                                            className="w-full bg-orange-600 hover:bg-orange-500 active:bg-orange-700 text-white rounded py-2 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-orange-950/20"
-                                         >
-                                            <RefreshCw size={12} />
-                                            Fiziksel Sensör Testi Başlat (10 Okuma)
-                                         </button>
-                                      </div>
-                                   </div>
-                                </div>
-
-                                {/* Right Side: Visual Tank Simulator */}
-                                <div className="flex flex-col items-center justify-center bg-black/10 border border-gray-800/40 rounded p-6 relative overflow-hidden min-h-[300px]">
-                                   {(() => {
-                                      const maxHeight = data.config.ultrasonicMaxHeightCm || 100;
-                                      const critPercent = data.config.ultrasonicCriticalLowPercent || 15;
-                                      const liquidH = Math.max(0, maxHeight - simulatedDistance);
-                                      const liquidP = Math.max(0, Math.min(100, Math.round((liquidH / maxHeight) * 100)));
-                                      const isCritical = liquidP <= critPercent;
-
-                                      return (
-                                         <div className="w-full flex flex-col items-center gap-6 z-10">
-                                            {/* Tank Cylinder Wrapper */}
-                                            <div className="w-52 h-60 bg-gradient-to-b from-[#1C2029]/80 to-[#0D1016]/90 border-2 border-gray-700/60 rounded-3xl relative overflow-hidden flex flex-col justify-end shadow-2xl backdrop-blur-sm">
-                                               {/* Waving fluid simulation with gradient */}
-                                               <div 
-                                                  className={cn(
-                                                     "w-full transition-all duration-500 ease-out relative",
-                                                     isCritical 
-                                                        ? "bg-gradient-to-t from-red-900/60 to-red-500/80" 
-                                                        : "bg-gradient-to-t from-blue-900/60 to-cyan-500/80"
-                                                  )}
-                                                  style={{ height: `${liquidP}%` }}
-                                               >
-                                                  {/* Wave shape overlays for animations */}
-                                                  <div className="absolute left-0 right-0 -top-2 h-4 bg-inherit opacity-40 rounded-full animate-pulse filter blur-[1px]"></div>
-                                                  
-                                                  {/* Floating bubbles inside the fluid */}
-                                                  <div className="absolute bottom-2 left-8 w-1.5 h-1.5 bg-white/30 rounded-full animate-bounce"></div>
-                                                  <div className="absolute bottom-10 right-14 w-2 h-2 bg-white/20 rounded-full animate-ping"></div>
-                                                  <div className="absolute bottom-20 left-16 w-1 h-1 bg-white/15 rounded-full animate-bounce"></div>
-                                                  <div className="absolute bottom-6 right-20 w-1.5 h-1.5 bg-white/25 rounded-full animate-bounce"></div>
-                                               </div>
-
-                                               {/* Tank Level Overlay Stats */}
-                                               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                                  <span className="text-2xl font-black font-mono text-white tracking-tighter drop-shadow-md">
-                                                     %{liquidP}
-                                                  </span>
-                                                  <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest drop-shadow">
-                                                     Sıvı Seviyesi
-                                                  </span>
-                                                  <span className="text-[10px] font-mono text-gray-300 mt-2 font-bold drop-shadow">
-                                                     {liquidH} cm / {maxHeight} cm
-                                                  </span>
-                                               </div>
-
-                                               {/* Critical Alarm Blinking Badge */}
-                                               {isCritical && (
-                                                  <div className="absolute top-4 left-0 right-0 mx-auto w-24 bg-red-600/95 text-white border border-red-500/30 text-[8px] font-black text-center py-1 rounded-full uppercase tracking-wider animate-bounce shadow-lg shadow-red-900/35">
-                                                     Kritik Seviye!
-                                                  </div>
-                                               )}
-                                            </div>
-
-                                            {/* Mini parameters readback */}
-                                            <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
-                                               <div className="bg-[#0D1016] border border-gray-800 p-2 rounded text-center">
-                                                  <div className="text-[7px] text-gray-500 font-bold uppercase mb-0.5">Sıvı Yüksekliği</div>
-                                                  <div className="text-xs font-mono font-bold text-blue-400">{liquidH} cm</div>
-                                               </div>
-                                               <div className="bg-[#0D1016] border border-gray-800 p-2 rounded text-center">
-                                                  <div className="text-[7px] text-gray-500 font-bold uppercase mb-0.5">Kritik Sınır</div>
-                                                  <div className="text-xs font-mono font-bold text-red-400">
-                                                     {Math.round((maxHeight * critPercent) / 100)} cm ({critPercent}%)
-                                                  </div>
-                                               </div>
-                                            </div>
-                                         </div>
-                                      );
-                                   })()}
-                                </div>
-                             </div>
+                             <ManualCalibrationUltrasonic
+                               data={data}
+                               onUpdateConfig={onUpdateConfig}
+                               simulatedDistance={simulatedDistance}
+                               setSimulatedDistance={setSimulatedDistance}
+                               onTriggerManualUltrasonic={onTriggerManualUltrasonic}
+                             />
                           )}
                        </div>
                     </div>

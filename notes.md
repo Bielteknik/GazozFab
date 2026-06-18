@@ -1,625 +1,86 @@
-//-----------------------
-#define X_STEP 5
-#define X_DIR  2
+1 Adet Raspberry pi 5(Bundan sonra pi5 olarak adlandırılacak), 
+2 Adet Arduino Nano(Bundan sonra nano1 veya nano2 olarak adlandırılacak). 
+1 adet 8 kanallı röle kartı.
+2 adet lazer sayıcı sensör(Bundan sonra Giriş Sayacı, Çıkış Sayacı olarak adlandırılacak).
+2 adet nema 14 motor(Bundan sonra Giriş Kilidi,  Çıkış Kilidi olarak adlandırılacak).
+1 Adet Ultrasonik sensör.
+1 Adet Selenoid Vana.
 
-#define Y_STEP 6
-#define Y_DIR  3
+Nano 1; 8 kanallı röle kartı kontrolünü yönetecek.
+Nano 2; Giriş kilidi, Çıkış kilidi, Giriş sayacı, Çıkış sayacı, Ultrasonik sensör, Selenoid Vanayı kontrol edecek.
 
-#define ENABLE_PIN 8
+Gazoz Fabrikasının Şerbet dolum hattı için çalışacak. Döngümüz şöyle Sürekli çalışan Konveyör bant sistemi ile yıkanmış şişeler Şerbet dolum alanına taşınıyor. Sistemde adı A olan bir Reçete var bu reçetede tanımlı değerler ile dolum yapılacak. Örneğin 8 adet şişeye 40 ml şerbet dolacak. Sistem otomatik modda ise Giriş kilidi açık, çıkış kilidi kapalı pozisyonda Giriş Sayacı önünden geçen şişeleri sayıyor. giren şişe sayısı 8 adet olduğunda giriş kilidi kapatılıyor. 1 saniye sonra belirlenen süre kadar 8 kanallı röle açılıyor örneğin 600ms şişeler 40 ml şerbet ile dolduktan sonra 1 sn bekleniyor. çıkış kilidi açılarak şişelerin diğer hatta gitmesi sağlanılıyor. çıkan şişeler çıkış sayacı tarafından sayılıyor. giren ve çıkan şişe sayısı eşitlendiğinde. döngü başa alınıyor. Yani çıkış kilidi kapatılıyor, giriş kilidi açılıyor. olay bu şekilde devam ediyor. 
 
-#define SENSOR_X 12
-#define SENSOR_Y 13
+Sorular:
 
-String komut = "";
+1. "Giriş Kilidi" ve "Çıkış Kilidi" Fiziksel Nasıl Çalışıyor?
+Bu kilitler konveyör bandın üzerine inen mekanik kol/stopper mı? (Örneğin şişenin önüne metal bir çubuk iniyor)
 
-const int stepDelay = 1000; // mikro saniye
+Yoksa Nema 14 motorlar, döner bariyer görevi mi görüyor (örneğin şişelerin geçişini dönen bir plaka ile engelliyor)?
 
-//--------------------------------------------------
+Kritik soru: Eğer motor step motor ise, kilit açık/kapalı pozisyonlarını nasıl koruyacaksınız? (Step motor sürekli akım çeker, ısınır. Mekanik bir mandal var mı, yoksa motora sürekli "tut" komutu mu göndereceksiniz?)
 
-void motorStep(int stepPin, int dirPin, bool yon, long adim)
-{
-  digitalWrite(ENABLE_PIN, LOW); // sürücü aktif
+2. Giriş Sayacı Çıkış Sayacı Yerleşimi ve "Fazla Sayma" Sorunu
+Konveyor sürekli çalıştığı için, bir şişe lazerin önünden geçerken lazer ışınını uzun süre kesebilir (örneğin 0.2 saniye).
 
-  digitalWrite(dirPin, yon);
+Bu sürede Nano/Pi5 tek bir kesinti mi algılayacak, yoksa şişe geçene kadar sürekli sinyal mi gelecek?
 
-  for(long i = 0; i < adim; i++)
-  {
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(stepDelay);
+Kritik soru: Sayma işlemini yükselen kenar (RISING) göre mi, yoksa alçalan kenar (FALLING) göre mi yapacaksınız? (Aksi halde 1 şişeyi 10 kere sayabilir.)
 
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(stepDelay);
-  }
-}
+3. 8 Şişe Dolum Alanına Nasıl Sığıyor? (Fiziksel Düzen)
+8 adet şişe, giriş kilidi ile çıkış kilidi arasında aynı anda mı duruyor?
 
-//--------------------------------------------------
+Eğer öyleyse, giriş stopperi açıkken arka arkaya gelen 8 şişe, çıkış stopperi kapalı olduğu için önlerindeki şişelere çarparak zincirleme sıkışma yapar mı?
 
-void durumGoster()
-{
-  Serial.println();
+Kritik soru: Konveyör hızı belli mi? 8. şişe içeri girdiğinde, 1. şişe çıkış kilidine dayanmış oluyor mu? Yoksa 8 şişe sığabilecek bir birikim alanı (akümülasyon hattı) mı var?
 
-  Serial.print("X Sensor : ");
+4. Röle Açılma Süresi (600ms) Nasıl Belirlendi?
+600ms boyunca röle açık kalacak. Bu röle, selenoid vanayı mı kontrol ediyor (şerbet akışını başlatıp durduruyor)?
 
-  if(digitalRead(SENSOR_X) == LOW)
-    Serial.println("ALGILADI");
-  else
-    Serial.println("BOS");
+Eğer öyleyse, 8 şişenin hepsine aynı anda mı şerbet basılıyor? (yani tek bir büyük manifold mu var?)
 
-  Serial.print("Y Sensor : ");
+Yoksa 8 kanallı röle, 8 ayrı dolum başlığını mı kontrol ediyor (her şişe için 1 röle kanalı)?
 
-  if(digitalRead(SENSOR_Y) == LOW)
-    Serial.println("ALGILADI");
-  else
-    Serial.println("BOS");
+Kritik soru: 600ms sonunda röle kapanınca, şişelerin üzerine damlayan son şerbet damlaları ne olacak? (Bu, ürün israfına yol açar, genelde "damla tutucu" eklenir.)
 
-  Serial.print("Motorlar : ");
+5. "1 Saniye Bekleme" Sürelerinin Amacı Ne?
+Giriş kapandıktan sonra 1 saniye bekleniyor. Bu bekleme, konveyör titreşiminin durması ve şişelerin tam dolum başlığının altında hizalanması için mi?
 
-  if(digitalRead(ENABLE_PIN) == LOW)
-    Serial.println("AKTIF");
-  else
-    Serial.println("PASIF");
+Dolum bittikten sonraki 1 saniye bekleme, şerbetin köpürmesini söndürmek veya damlaların akması için mi?
 
-  Serial.println();
-}
+Kritik soru: Bu süreler reçeteye (Reçete A) bağlı mı? Farklı reçetelerde (örneğin 12 şişe 50 ml) bu bekleme süreleri değişecek mi?
 
-//--------------------------------------------------
+6. Manuel Mod ve Acil Durum
+"Sistem otomatik modda" dediniz. Peki manuel mod da var mı? (Örneğin operatör butonla kapıları açıp kapatabilmeli mi?)
 
-void menuGoster()
-{
-  Serial.println();
-  Serial.println("===== CNC TEST =====");
-  Serial.println("help");
-  Serial.println("status");
-  Serial.println("enable");
-  Serial.println("disable");
-  Serial.println("x+");
-  Serial.println("x-");
-  Serial.println("y+");
-  Serial.println("y-");
-  Serial.println("homex");
-  Serial.println("homey");
-  Serial.println("watch");
-  Serial.println("====================");
-  Serial.println();
-}
+Konveyör sürekli çalışıyor ama ya sistemin önünde veya arkasında şişe yoksa? (Giriş sayacı 8'den az sayıda şişe görürse sonsuza kadar bekler mi, yoksa zaman aşımı (timeout) ile arıza mı verir?)
 
-//--------------------------------------------------
+7. Reçete A'nın İçinde Neler Var?
+Sadece "8 adet şişe" ve "40 ml" mi var?
 
-void setup()
-{
-  pinMode(X_STEP, OUTPUT);
-  pinMode(X_DIR, OUTPUT);
+Yoksa dolum süresi (600ms) ve bekleme süreleri (1sn) de reçeteye mi dahil? (Çünkü farklı şerbet viskoziteleri farklı akış hızı yaratır, o yüzden süre de reçetede olmalıdır.)
 
-  pinMode(Y_STEP, OUTPUT);
-  pinMode(Y_DIR, OUTPUT);
+Reçete değişimi sırasında (örneğin A'dan B'ye geçerken) sistem boşta mı kalacak, yoksa hattaki mevcut şişeler bitene kadar eski reçete mi devam edecek?
 
-  pinMode(ENABLE_PIN, OUTPUT);
+Cevaplar:
 
-  pinMode(SENSOR_X, INPUT);
-  pinMode(SENSOR_Y, INPUT);
+1. Giriş Çıkış kilidi nema 14 step motor ile kontrol ediliyor. ileri geri hareket eden bariyer gibi, sadece kilidin açık olduğu durumda çalışan optik limit switch var. onunla durumunu takip ediyorum. 
+2. Lazer sensör düşen kenarda sayıyor. Nano2 A0,A1 pinleri ile kontrol ediliyorlar. A0 Giriş Sayacı, 
+A1 çıkış sayacı. 
+3. Evet aynı anda duruyor. Evet şişeler bir birini sıkıştırıyor. evet 8 şişe girdiğinde 1.  şişe çıkış kilidine dayanmış oluyor. 
+4. 600 ms hesaplama yapıldı. manifold ile 8 şişeye aynı anda şerbet dolumu yapılıyor. Damla tutucu yok önerirsen iyi olur. 
+5. Konveyör hızı nedeni ile son şişenin yerine gelme süresi, Evet köpürme ve varsa son damla için, Evet her reçete kendine özel değerler taşıyor. 
+6. Evet otomatik modun yarı otomatik hali, Operatör bunu kendisi ayarlayabiliyor. arayüzden giriş çıkış kilitve sayaçlarını kontrol edebiliyor. 
+7. Hayır sınırsız reçete tanımlanabilir. 600ms 40ml şerbet için, başka bir reçetede 4 şişe 20ml olabilir. Hatta ki döngü bitmeden reçete değişimi yapılamaz. 
 
-  digitalWrite(ENABLE_PIN, HIGH); // sessiz başla
+Doğru akış diyagramı, iş akış algoritması istiyorum.
 
-  Serial.begin(115200);
+1. SİSTEM ANA AKIŞ FLOWCHART
+2. DURUM GEÇİŞ DİYAGRAMI (STATE TRANSITION)
+3. KARAR AĞACI (DECISION TREE) - HATA YÖNETİMİ
+4. ZAMANLAMA DİYAGRAMI (TIMING DIAGRAM)
+5. KARAR TABLOSU (DECISION TABLE)
+6. ALTERNATİF AKIŞ - YARI OTOMATİK MOD
+7. ÖZET DURUM GEÇİŞ MATRİSİ
 
-  delay(1000);
 
-  Serial.println();
-  Serial.println("Sistem Hazir");
-
-  menuGoster();
-}
-
-//--------------------------------------------------
-
-void loop()
-{
-  if(Serial.available())
-  {
-    komut = Serial.readStringUntil('\n');
-    komut.trim();
-
-    //------------------------------------------------
-
-    if(komut == "help")
-    {
-      menuGoster();
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "status")
-    {
-      durumGoster();
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "enable")
-    {
-      digitalWrite(ENABLE_PIN, LOW);
-      Serial.println("Motorlar AKTIF");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "disable")
-    {
-      digitalWrite(ENABLE_PIN, HIGH);
-      Serial.println("Motorlar PASIF");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "x+")
-    {
-      motorStep(X_STEP, X_DIR, HIGH, 200);
-      Serial.println("X ileri 200 adim");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "x-")
-    {
-      motorStep(X_STEP, X_DIR, LOW, 200);
-      Serial.println("X geri 200 adim");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "y+")
-    {
-      motorStep(Y_STEP, Y_DIR, HIGH, 200);
-      Serial.println("Y ileri 200 adim");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "y-")
-    {
-      motorStep(Y_STEP, Y_DIR, LOW, 200);
-      Serial.println("Y geri 200 adim");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "homex")
-    {
-      Serial.println("X sensor aranıyor");
-
-      digitalWrite(ENABLE_PIN, LOW);
-      digitalWrite(X_DIR, HIGH);
-
-      while(digitalRead(SENSOR_X) == HIGH)
-      {
-        digitalWrite(X_STEP, HIGH);
-        delayMicroseconds(stepDelay);
-
-        digitalWrite(X_STEP, LOW);
-        delayMicroseconds(stepDelay);
-      }
-
-      digitalWrite(ENABLE_PIN, HIGH);
-
-      Serial.println("X sensor bulundu");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "homey")
-    {
-      Serial.println("Y sensor aranıyor");
-
-      digitalWrite(ENABLE_PIN, LOW);
-      digitalWrite(Y_DIR, HIGH);
-
-      while(digitalRead(SENSOR_Y) == HIGH)
-      {
-        digitalWrite(Y_STEP, HIGH);
-        delayMicroseconds(stepDelay);
-
-        digitalWrite(Y_STEP, LOW);
-        delayMicroseconds(stepDelay);
-      }
-
-      digitalWrite(ENABLE_PIN, HIGH);
-
-      Serial.println("Y sensor bulundu");
-    }
-
-    //------------------------------------------------
-
-    else if(komut == "watch")
-    {
-      Serial.println("Izleme modu");
-      Serial.println("Reset ile cikilir");
-
-      while(true)
-      {
-        Serial.print("X=");
-
-        if(digitalRead(SENSOR_X))
-          Serial.print("BOS");
-        else
-          Serial.print("ALGILADI");
-
-        Serial.print("   Y=");
-
-        if(digitalRead(SENSOR_Y))
-          Serial.println("BOS");
-        else
-          Serial.println("ALGILADI");
-
-        delay(250);
-      }
-    }
-
-    //------------------------------------------------
-
-    else
-    {
-      Serial.println("Bilinmeyen komut");
-    }
-  }
-}
-//-----------------------
-
-//-----------------------
-// Varsayılan pin tanımları (CNC Shield Shield V3 fallback)
-// Eğer Pi5'ten CONFIG gelmezse bu varsayılan değerlerle çalışır.
-int X_STEP = 5;
-int X_DIR = 2;
-int Y_STEP = 6;
-int Y_DIR = 3;
-int ENABLE_PIN = 8;
-int SENSOR_X = 12;
-int SENSOR_Y = 13;
-
-int stepDelay = 1000; // mikro saniye
-long stepsX = 400;
-long stepsY = 400;
-
-String komut = "";
-
-// Lazer Sensör Durum Takip Değişkenleri (Debounce ve Değişim Algılama)
-int lastSensXState = HIGH;
-int lastSensYState = HIGH;
-unsigned long lastSensXDebounce = 0;
-unsigned long lastSensYDebounce = 0;
-const unsigned long debounceDelay = 50;
-
-//--------------------------------------------------
-
-void setupPins() {
-  pinMode(X_STEP, OUTPUT);
-  pinMode(X_DIR, OUTPUT);
-  pinMode(Y_STEP, OUTPUT);
-  pinMode(Y_DIR, OUTPUT);
-  pinMode(ENABLE_PIN, OUTPUT);
-  
-  pinMode(SENSOR_X, INPUT_PULLUP);
-  pinMode(SENSOR_Y, INPUT_PULLUP);
-  
-  digitalWrite(ENABLE_PIN, HIGH); // Sessiz başla / sürücüyü devre dışı bırak
-}
-
-//--------------------------------------------------
-
-void motorStep(int stepPin, int dirPin, bool yon, long adim) {
-  digitalWrite(ENABLE_PIN, LOW); // sürücü aktif
-  delay(1); // Kısa bir aktifleşme süresi
-
-  digitalWrite(dirPin, yon);
-
-  for (long i = 0; i < adim; i++) {
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(stepDelay);
-
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(stepDelay);
-  }
-}
-
-//--------------------------------------------------
-
-void durumGoster() {
-  Serial.println();
-  Serial.print("X Sensor (Pin "); Serial.print(SENSOR_X); Serial.print(") : ");
-  if (digitalRead(SENSOR_X) == LOW)
-    Serial.println("ALGILADI");
-  else
-    Serial.println("BOS");
-
-  Serial.print("Y Sensor (Pin "); Serial.print(SENSOR_Y); Serial.print(") : ");
-  if (digitalRead(SENSOR_Y) == LOW)
-    Serial.println("ALGILADI");
-  else
-    Serial.println("BOS");
-
-  Serial.print("Motorlar : ");
-  if (digitalRead(ENABLE_PIN) == LOW)
-    Serial.println("AKTIF");
-  else
-    Serial.println("PASIF");
-    
-  Serial.print("Ayarlar  : Delay (Hiz) = "); Serial.print(stepDelay);
-  Serial.print("us, Steps X = "); Serial.print(stepsX);
-  Serial.print(", Steps Y = "); Serial.println(stepsY);
-  Serial.println();
-}
-
-//--------------------------------------------------
-
-void menuGoster() {
-  Serial.println();
-  Serial.println("===== CNC TEST (DINAMIK) =====");
-  Serial.println("help");
-  Serial.println("status");
-  Serial.println("enable");
-  Serial.println("disable");
-  Serial.println("x+");
-  Serial.println("x-");
-  Serial.println("y+");
-  Serial.println("y-");
-  Serial.println("homex");
-  Serial.println("homey");
-  Serial.println("watch");
-  Serial.println("==============================");
-  Serial.println();
-}
-
-//--------------------------------------------------
-
-void parseConfig(String payload) {
-  // payload formatı: STEP1=5:DIR1=2:STEP2=6:DIR2=3:EN=8:SENS_IN=12:SENS_OUT=13:SPEED1=1000:SPEED2=1000:STEPS1=400:STEPS2=400
-  int startIdx = 0;
-  while (startIdx < payload.length()) {
-    int nextColon = payload.indexOf(':', startIdx);
-    if (nextColon == -1) nextColon = payload.length();
-    String pair = payload.substring(startIdx, nextColon);
-    startIdx = nextColon + 1;
-
-    int eqIdx = pair.indexOf('=');
-    if (eqIdx != -1) {
-      String key = pair.substring(0, eqIdx);
-      String val = pair.substring(eqIdx + 1);
-      key.trim();
-      val.trim();
-
-      if (key == "STEP1") X_STEP = val.toInt();
-      else if (key == "DIR1") X_DIR = val.toInt();
-      else if (key == "STEP2") Y_STEP = val.toInt();
-      else if (key == "DIR2") Y_DIR = val.toInt();
-      else if (key == "EN") ENABLE_PIN = val.toInt();
-      else if (key == "SENS_IN") SENSOR_X = val.toInt();
-      else if (key == "SENS_OUT") SENSOR_Y = val.toInt();
-      else if (key == "SPEED1") stepDelay = val.toInt();
-      else if (key == "STEPS1") stepsX = val.toInt();
-      else if (key == "STEPS2") stepsY = val.toInt();
-    }
-  }
-
-  // Pinleri yeniden yapılandır
-  setupPins();
-  
-  // İlk durumları güncelle
-  lastSensXState = digitalRead(SENSOR_X);
-  lastSensYState = digitalRead(SENSOR_Y);
-  
-  Serial.println("CONFIG:OK");
-}
-
-//--------------------------------------------------
-
-void setup() {
-  Serial.begin(115200);
-  
-  setupPins();
-
-  // İlk durumları güncelle
-  lastSensXState = digitalRead(SENSOR_X);
-  lastSensYState = digitalRead(SENSOR_Y);
-
-  delay(500);
-
-  // Kimlik Yayını (Pi5 keşfi için)
-  Serial.println("ID:GatesNano;NAME:GatesNano");
-  
-  menuGoster();
-}
-
-//--------------------------------------------------
-
-void loop() {
-  // Lazer Sensör X (Giriş) Takibi ve Raporlama
-  int currentX = digitalRead(SENSOR_X);
-  if (currentX != lastSensXState) {
-    if ((millis() - lastSensXDebounce) > debounceDelay) {
-      lastSensXState = currentX;
-      lastSensXDebounce = millis();
-      if (currentX == LOW) {
-        Serial.print("EVENT:PIN:D");
-        Serial.print(SENSOR_X);
-        Serial.println(":ACTIVE");
-      } else {
-        Serial.print("EVENT:PIN:D");
-        Serial.print(SENSOR_X);
-        Serial.println(":INACTIVE");
-      }
-    }
-  }
-
-  // Lazer Sensör Y (Çıkış) Takibi ve Raporlama
-  int currentY = digitalRead(SENSOR_Y);
-  if (currentY != lastSensYState) {
-    if ((millis() - lastSensYDebounce) > debounceDelay) {
-      lastSensYState = currentY;
-      lastSensYDebounce = millis();
-      if (currentY == LOW) {
-        Serial.print("EVENT:PIN:D");
-        Serial.print(SENSOR_Y);
-        Serial.println(":ACTIVE");
-      } else {
-        Serial.print("EVENT:PIN:D");
-        Serial.print(SENSOR_Y);
-        Serial.println(":INACTIVE");
-      }
-    }
-  }
-
-  // Seri porttan gelen komutları oku
-  if (Serial.available()) {
-    komut = Serial.readStringUntil('\n');
-    komut.trim();
-
-    if (komut.startsWith("CONFIG:")) {
-      parseConfig(komut.substring(7));
-    }
-    
-    else if (komut.startsWith("GATE:")) {
-      // Format: GATE:OPEN:D5:D2:D8:400:1000
-      int parts[7];
-      int partCount = 0;
-      int startIdx = 0;
-      
-      while (partCount < 7) {
-        int nextColon = komut.indexOf(':', startIdx);
-        if (nextColon == -1) {
-          parts[partCount++] = startIdx;
-          break;
-        }
-        parts[partCount++] = startIdx;
-        startIdx = nextColon + 1;
-      }
-      
-      if (partCount >= 7) {
-        String action = komut.substring(parts[1], parts[2] - 1);
-        String stepPinStr = komut.substring(parts[2], parts[3] - 1);
-        String dirPinStr = komut.substring(parts[3], parts[4] - 1);
-        String enPinStr = komut.substring(parts[4], parts[5] - 1);
-        String stepsStr = komut.substring(parts[5], parts[6] - 1);
-        String speedStr = komut.substring(parts[6]);
-        
-        stepPinStr.replace("D", "");
-        dirPinStr.replace("D", "");
-        enPinStr.replace("D", "");
-        
-        int targetStepPin = stepPinStr.toInt();
-        int targetDirPin = dirPinStr.toInt();
-        int targetEnPin = enPinStr.toInt();
-        long targetSteps = stepsStr.toInt();
-        int targetSpeed = speedStr.toInt();
-        
-        bool direction = (action == "OPEN") ? HIGH : LOW;
-        
-        stepDelay = targetSpeed;
-        
-        // Motoru sür
-        motorStep(targetStepPin, targetDirPin, direction, targetSteps);
-        
-        // Sürücüyü uykuya al (ısınmayı önlemek için)
-        digitalWrite(targetEnPin, HIGH);
-        
-        Serial.println("GATE:OK");
-      } else {
-        Serial.println("GATE:ERROR:Eksik parametre");
-      }
-    }
-    
-    else if (komut == "help") {
-      menuGoster();
-    }
-
-    else if (komut == "status") {
-      durumGoster();
-    }
-
-    else if (komut == "enable") {
-      digitalWrite(ENABLE_PIN, LOW);
-      Serial.println("Motorlar AKTIF");
-    }
-
-    else if (komut == "disable") {
-      digitalWrite(ENABLE_PIN, HIGH);
-      Serial.println("Motorlar PASIF");
-    }
-
-    else if (komut == "x+") {
-      motorStep(X_STEP, X_DIR, HIGH, stepsX);
-      digitalWrite(ENABLE_PIN, HIGH); // Isınmayı önleme
-      Serial.print("X ileri "); Serial.print(stepsX); Serial.println(" adim");
-    }
-
-    else if (komut == "x-") {
-      motorStep(X_STEP, X_DIR, LOW, stepsX);
-      digitalWrite(ENABLE_PIN, HIGH); // Isınmayı önleme
-      Serial.print("X geri "); Serial.print(stepsX); Serial.println(" adim");
-    }
-
-    else if (komut == "y+") {
-      motorStep(Y_STEP, Y_DIR, HIGH, stepsY);
-      digitalWrite(ENABLE_PIN, HIGH); // Isınmayı önleme
-      Serial.print("Y ileri "); Serial.print(stepsY); Serial.println(" adim");
-    }
-
-    else if (komut == "y-") {
-      motorStep(Y_STEP, Y_DIR, LOW, stepsY);
-      digitalWrite(ENABLE_PIN, HIGH); // Isınmayı önleme
-      Serial.print("Y geri "); Serial.print(stepsY); Serial.println(" adim");
-    }
-
-    else if (komut == "homex") {
-      Serial.println("X sensor araniyor");
-      digitalWrite(ENABLE_PIN, LOW);
-      digitalWrite(X_DIR, HIGH);
-
-      while (digitalRead(SENSOR_X) == HIGH) {
-        digitalWrite(X_STEP, HIGH);
-        delayMicroseconds(stepDelay);
-        digitalWrite(X_STEP, LOW);
-        delayMicroseconds(stepDelay);
-      }
-      digitalWrite(ENABLE_PIN, HIGH); // Isınmayı önleme
-      Serial.println("X sensor bulundu");
-    }
-
-    else if (komut == "homey") {
-      Serial.println("Y sensor araniyor");
-      digitalWrite(ENABLE_PIN, LOW);
-      digitalWrite(Y_DIR, HIGH);
-
-      while (digitalRead(SENSOR_Y) == HIGH) {
-        digitalWrite(Y_STEP, HIGH);
-        delayMicroseconds(stepDelay);
-        digitalWrite(Y_STEP, LOW);
-        delayMicroseconds(stepDelay);
-      }
-      digitalWrite(ENABLE_PIN, HIGH); // Isınmayı önleme
-      Serial.println("Y sensor bulundu");
-    }
-
-    else if (komut == "watch") {
-      Serial.println("Izleme modu. Reset ile cikilir");
-      while (true) {
-        Serial.print("X=");
-        if (digitalRead(SENSOR_X)) Serial.print("BOS");
-        else Serial.print("ALGILADI");
-
-        Serial.print("   Y=");
-        if (digitalRead(SENSOR_Y)) Serial.println("BOS");
-        else Serial.println("ALGILADI");
-
-        delay(250);
-      }
-    }
-
-    else if (komut == "WHOAMI") {
-      Serial.println("ID:GatesNano;NAME:GatesNano");
-    }
-
-    else {
-      Serial.println("Bilinmeyen komut");
-    }
-  }
-}
-//--------------------------

@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { SystemData, SystemMode, ValveState, GateState, NanoState, SensorState, SystemConfig, Recipe } from '../types/system';
 
 // Clean initial system state (factory defaults / no mock data)
-export const INITIAL_STATE: SystemData = {
+const INITIAL_STATE: SystemData = {
   mode: 'BASLATMA',
   autoState: 'BEKLEMEDE',
   inputCount: 0,
