@@ -82,5 +82,3 @@ Doğru akış diyagramı, iş akış algoritması istiyorum.
 5. KARAR TABLOSU (DECISION TABLE)
 6. ALTERNATİF AKIŞ - YARI OTOMATİK MOD
 7. ÖZET DURUM GEÇİŞ MATRİSİ
-
-
