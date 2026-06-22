@@ -125,11 +125,7 @@ def init_db():
                     conn.execute("UPDATE nanos SET port = '/dev/ttyUSB1' WHERE id = 'ValvesNano'")
                     print(f"[DB Migration] Auto-migrated ValvesNano port from {row[0]} to /dev/ttyUSB1")
                 
-                # Seed default 40ml and 660ms configurations
-                conn.execute("UPDATE recipes SET volumeMl = 40, fillTimeMs = 660, valveDurations = '{\"10\":660,\"11\":660,\"12\":660,\"13\":660,\"14\":660,\"15\":660,\"16\":660,\"17\":660}' WHERE id = 'default_recipe'")
-                conn.execute("UPDATE system_config SET volumeMl = 40, fillTimeMs = 660 WHERE id = 1")
-                conn.execute("UPDATE valves SET pulseDuration = 660")
-                print("[DB Migration] Configured default recipe and valves to 40ml / 660ms.")
+                # Seed default configurations handled by schema.sql instead of overriding user settings here
             except Exception as e:
                 print(f"[DB Migration Error] {e}")
             conn.commit()
