@@ -88,43 +88,30 @@ export function OperatorControl({
     <div className="flex flex-col h-full space-y-4 overflow-hidden">
       
       {/* Top action bar - Operator Control version */}
-      <div className="flex flex-col bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-3 w-full">
-        {/* Row 1: Header Info & Exit Mode */}
-        <div className="flex items-center justify-between w-full">
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col">
-              <h2 className="text-sm font-bold tracking-tight text-white flex items-center">
-                <UserCheck className="mr-2 text-blue-400" size={14} /> OPERATÖR KONTROLÜ AKTİF
-              </h2>
-              <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
-                {isFilling ? 'Şerbet Dolumu Yapılıyor' : 'Tüm süreç manuel tetikleme bekliyor'} 
-                {isFilling && <span className="ml-2 text-blue-400 font-bold">({Math.round(fillProgress)}%)</span>}
-              </p>
-            </div>
-            <div className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Yarı-Otomatik Mod
-            </div>
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-4 lg:gap-0 w-full">
+        {/* Header Info & Exit Mode */}
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            <h2 className="text-sm font-bold tracking-tight text-white flex items-center">
+              <UserCheck className="mr-2 text-blue-400" size={14} /> OPERATÖR KONTROLÜ AKTİF
+            </h2>
+            <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
+              {isFilling ? 'Şerbet Dolumu Yapılıyor' : 'Tüm süreç manuel tetikleme bekliyor'} 
+              {isFilling && <span className="ml-2 text-blue-400 font-bold">({Math.round(fillProgress)}%)</span>}
+            </p>
           </div>
-          
-          <button
-            onClick={() => setMode('BEKLEMEDE')}
-            className="flex items-center justify-center gap-1.5 bg-red-900/40 border border-red-800 hover:bg-red-900 text-red-500 px-3 py-1.5 rounded font-bold text-[10px] transition-all active:scale-95 whitespace-nowrap"
-          >
-            <ShieldAlert size={12} />
-            <span>MODDAN ÇIK</span>
-          </button>
+          <div className="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
+            Yarı-Otomatik Mod
+          </div>
         </div>
 
-        {/* Divider */}
-        <div className="h-px bg-gray-800 w-full" />
-
-        {/* Row 2: Action Buttons */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full">
+        {/* Row 2: Action Buttons & Exit Mode (moved to top row as flex items) */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           {/* Step 1: Entry Gate */}
           <button
             onClick={() => operateGate('inputGate', data.inputGate.isOpen ? 0 : 400)}
             className={cn(
-              "flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all border whitespace-nowrap active:scale-95",
+              "flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all border whitespace-nowrap active:scale-95 h-[34px]",
               data.inputGate.isOpen 
                 ? "bg-red-900/20 border-red-800 text-red-500 hover:bg-red-900/40" 
                 : "bg-emerald-900/40 border-emerald-800 text-emerald-400 hover:bg-emerald-900"
@@ -139,7 +126,7 @@ export function OperatorControl({
             value={fillMethod}
             onChange={(e) => setFillMethod(e.target.value as 'SEQUENTIAL' | 'CONCURRENT')}
             disabled={isFilling}
-            className="bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-[10px] font-bold text-[#4ade80] focus:border-[#4ade80]/50 outline-none disabled:opacity-50 h-[34px] cursor-pointer w-full text-center"
+            className="flex-1 lg:flex-none bg-[#1C2029] border border-[#374151] rounded px-3 py-2 text-[10px] font-bold text-[#4ade80] focus:border-[#4ade80]/50 outline-none disabled:opacity-50 h-[34px] cursor-pointer text-center"
           >
             <option value="SEQUENTIAL">Sıralı Doldur (Tek Tek)</option>
             <option value="CONCURRENT">Eşzamanlı Doldur (Hepsi)</option>
@@ -157,7 +144,7 @@ export function OperatorControl({
                   : 'Dolum işlemini başlat'
             }
             className={cn(
-              "flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden",
+              "flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all active:scale-95 border whitespace-nowrap relative overflow-hidden h-[34px]",
               isFilling 
                 ? "bg-blue-600/20 border-blue-500 text-blue-400" 
                 : (data.inputGate.isOpen || data.outputGate.isOpen)
@@ -186,7 +173,7 @@ export function OperatorControl({
           <button
             onClick={() => operateGate('outputGate', data.outputGate.isOpen ? 0 : 400)}
             className={cn(
-              "flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all border whitespace-nowrap active:scale-95",
+              "flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded font-bold text-[10px] transition-all border whitespace-nowrap active:scale-95 h-[34px]",
               data.outputGate.isOpen 
                 ? "bg-orange-900/20 border-orange-800 text-orange-500 hover:bg-orange-900/40" 
                 : "bg-orange-600/20 border-orange-500 text-orange-400 hover:bg-orange-650/40"
@@ -194,6 +181,15 @@ export function OperatorControl({
           >
             {data.outputGate.isOpen ? <Square size={12} /> : <RefreshCw size={12} />}
             <span>{data.outputGate.isOpen ? '3. TAHLİYEYİ DURDUR' : '3. TAHLİYEYİ BAŞLAT'}</span>
+          </button>
+
+          {/* Exit Mode Button */}
+          <button
+            onClick={() => setMode('BEKLEMEDE')}
+            className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 bg-red-900/40 border border-red-800 hover:bg-red-900 text-red-500 px-3 py-2 rounded font-bold text-[10px] transition-all active:scale-95 whitespace-nowrap h-[34px]"
+          >
+            <ShieldAlert size={12} />
+            <span>MODDAN ÇIK</span>
           </button>
         </div>
       </div>
@@ -406,8 +402,10 @@ export function OperatorControl({
                        </div>
                     ))}
                   </div>
+               </div>
+            </div>
 
-                  {/* System Messages & Alerts Tabs - INSIDE Left Column to match Dashboard layout exactly */}
+            {/* System Messages & Alerts Tabs - INSIDE Left Column to match Dashboard layout exactly */}
             <TerminalTabsPanel 
                data={data} 
                activeMsgTab={activeMsgTab} 
@@ -487,8 +485,6 @@ export function OperatorControl({
             />
          </div>
       </div>
-    </div>
-    </div>
-    </div>
-  );
+   </div>
+);
 }
