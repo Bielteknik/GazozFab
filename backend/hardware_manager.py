@@ -736,8 +736,10 @@ class HardwareManager:
         if not valve_actions:
             return
         tasks = []
-        for v in valve_actions:
-            tasks.append(self.pulse_valve(v["id"], v["pin"], v["duration"], v["device"]))
+        for i, v in enumerate(valve_actions):
+            if i > 0:
+                await asyncio.sleep(0.02)  # 20ms stagger delay
+            tasks.append(asyncio.create_task(self.pulse_valve(v["id"], v["pin"], v["duration"], v["device"])))
         await asyncio.gather(*tasks)
 
     def control_gate(self, gate_id, pin, state, device="NANO", steps=None, speed=None):

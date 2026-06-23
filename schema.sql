@@ -218,5 +218,4 @@ VALUES (17, 'Vana 8', '10', 1, 0, 'CONTINUOUS', 660, 'NANO', 'ValvesNano', 0);
 
 -- Varsayılan bir adet reçete tohumla
 INSERT OR IGNORE INTO recipes (id, name, description, targetCount, fillTimeMs, volumeMl, settlingTimeMs, dripWaitTimeMs, valveDurations)
-VALUES ('default_recipe', 'Standart 8li Reçete', 'Tüm valflerin 660 saniye açık kalacağı standart 8 şişelik dolum reçetesi.', 8, 660, 250, 150, 150, '{"10":660,"11":660,"12":660,"13":660,"14":660,"15":660,"16":660,"17":660}');
-
+VALUES ('default_recipe', 'Standart 8li Reçete', 'Tüm valflerin 3 saniye açık kalacağı standart 8 şişelik dolum reçetesi.', 8, 660, 250, 150, 150, '{}');

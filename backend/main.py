@@ -125,6 +125,46 @@ def init_db():
                     conn.execute("UPDATE nanos SET port = '/dev/ttyUSB1' WHERE id = 'ValvesNano'")
                     print(f"[DB Migration] Auto-migrated ValvesNano port from {row[0]} to /dev/ttyUSB1")
                 
+                # Clear redundant valveDurations for ALL recipes if they match the default seed (660) or match the recipe's own fillTimeMs
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id, fillTimeMs, valveDurations FROM recipes")
+                    recipe_rows = cursor.fetchall()
+                    for r_row in recipe_rows:
+                        r_id = r_row[0]
+                        r_fill = r_row[1]
+                        r_durs_raw = r_row[2]
+                        if r_durs_raw:
+                            try:
+                                durs = json.loads(r_durs_raw)
+                                if isinstance(durs, dict) and durs:
+                                    unique_vals = set(durs.values())
+                                    if len(unique_vals) == 1:
+                                        val = list(unique_vals)[0]
+                                        if val == 660 or val == r_fill:
+                                            conn.execute("UPDATE recipes SET valveDurations = '{}' WHERE id = ?", (r_id,))
+                                            print(f"[DB Migration] Cleared redundant valveDurations for recipe '{r_id}' (all valve durations were {val} ms)")
+                            except Exception as ex:
+                                pass
+                except Exception as e:
+                    print(f"[DB Migration Error - Recipe Clear] {e}")
+
+                # Ensure system_config has a valid active recipe selected on startup
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT recipeId FROM system_config WHERE id = 1")
+                    cfg_row = cursor.fetchone()
+                    if not cfg_row or not cfg_row[0]:
+                        # Find the first available recipe to set as active fallback
+                        cursor.execute("SELECT id, targetCount, fillTimeMs, volumeMl, settlingTimeMs, dripWaitTimeMs FROM recipes LIMIT 1")
+                        first_rec = cursor.fetchone()
+                        if first_rec:
+                            conn.execute("UPDATE system_config SET recipeId = ?, targetCount = ?, fillTimeMs = ?, volumeMl = ?, settlingTimeMs = ?, dripWaitTimeMs = ? WHERE id = 1",
+                                         (first_rec[0], first_rec[1], first_rec[2], first_rec[3], first_rec[4], first_rec[5]))
+                            print(f"[DB Migration] Auto-selected first available recipe '{first_rec[0]}' as active system config fallback")
+                except Exception as e:
+                    print(f"[DB Migration Error - Config Fallback] {e}")
+                
                 # Seed default configurations handled by schema.sql instead of overriding user settings here
             except Exception as e:
                 print(f"[DB Migration Error] {e}")
@@ -873,12 +913,51 @@ async def handle_action(sid, data):
         rid = payload.get('id')
         db.execute("DELETE FROM recipes WHERE id = ?", (rid,))
         add_log(f"Reçete {rid} veritabanından silindi.")
+        
+        # If the deleted recipe was active, auto-fallback to the first available recipe
+        cfg = db.fetchone("SELECT recipeId FROM system_config WHERE id = 1")
+        if cfg and cfg["recipeId"] == rid:
+            first_rec = db.fetchone("SELECT id, name, targetCount, fillTimeMs, volumeMl, settlingTimeMs, dripWaitTimeMs FROM recipes LIMIT 1")
+            if first_rec:
+                db.execute("UPDATE system_config SET recipeId = ?, targetCount = ?, fillTimeMs = ?, volumeMl = ?, settlingTimeMs = ?, dripWaitTimeMs = ? WHERE id = 1",
+                           (first_rec["id"], first_rec["targetCount"], first_rec["fillTimeMs"], first_rec["volumeMl"], first_rec["settlingTimeMs"], first_rec["dripWaitTimeMs"]))
+                add_log(f"Aktif reçete silindiği için yeni aktif reçete otomatik seçildi: {first_rec['name']}")
+            else:
+                db.execute("UPDATE system_config SET recipeId = '', targetCount = 0, fillTimeMs = 0, volumeMl = 0, settlingTimeMs = 0, dripWaitTimeMs = 0 WHERE id = 1")
 
     elif action_type == 'UPDATE_RECIPE':
         rid = payload.get('id')
         updates = payload.get('updates', {})
+        
+        # Proportional scaling of individual valve durations if fillTimeMs is updated
+        if 'fillTimeMs' in updates and 'valveDurations' not in updates:
+            new_fill_time = updates['fillTimeMs']
+            recipe = db.fetchone("SELECT fillTimeMs, valveDurations FROM recipes WHERE id = ?", (rid,))
+            if recipe and recipe['fillTimeMs'] and recipe['fillTimeMs'] > 0 and new_fill_time and new_fill_time > 0:
+                old_fill_time = recipe['fillTimeMs']
+                if old_fill_time != new_fill_time:
+                    try:
+                        valve_durs = json.loads(recipe.get('valveDurations') or "{}")
+                        if valve_durs:
+                            ratio = float(new_fill_time) / float(old_fill_time)
+                            updated_durs = {}
+                            for vid, old_dur in valve_durs.items():
+                                updated_durs[vid] = int(round(float(old_dur) * ratio))
+                            updates['valveDurations'] = updated_durs
+                    except Exception as ex:
+                        print(f"[Recipe Update Error] Failed to scale valve durations: {ex}")
+
         for k, v in updates.items():
             if k == 'valveDurations':
+                try:
+                    recipe = db.fetchone("SELECT fillTimeMs FROM recipes WHERE id = ?", (rid,))
+                    r_fill = updates.get('fillTimeMs') or (recipe['fillTimeMs'] if recipe else None)
+                    if r_fill and isinstance(v, dict) and len(v) > 0:
+                        unique_vals = set(v.values())
+                        if len(unique_vals) == 1 and list(unique_vals)[0] == r_fill:
+                            v = {}
+                except Exception as ex:
+                    print(f"[Recipe Update Clear Warning] {ex}")
                 v = json.dumps(v)
             db.execute(f"UPDATE recipes SET {k} = ? WHERE id = ?", (v, rid))
         
